@@ -13,14 +13,14 @@
 #define DEBUG_COLOUR_DATA (PRINTS_COLOUR_DATA || PRINTS_GENERAL|| PRINTS_ALL_COLOUR)
 
 // ----------------- Camera -----------------
-#define PRINTS_ALL_CAMERA 0
+#define PRINTS_ALL_CAMERA 1
 #define PRINTS_CAMERA_DATA 0
 
 #define DEBUG_CAMERA_DATA (PRINTS_CAMERA_DATA || PRINTS_GENERAL|| PRINTS_ALL_CAMERA)
 
 
 // --------------- LRFS ---------------------
-#define PRINTS_ALL_LRF 1
+#define PRINTS_ALL_LRF 0
 #define PRINTS_LRF_DATA 0
 #define PRINTS_TARGET_DISTANCES 0
 
@@ -36,7 +36,7 @@
 
 
 // ----------------- States -----------------
-#define PRINTS_ALL_STATE 0
+#define PRINTS_ALL_STATE 1
 #define PRINTS_STATE_DATA 0
 
 #define DEBUG_STATE_DATA (PRINTS_STATE_DATA || PRINTS_GENERAL || PRINTS_ALL_STATE)
@@ -118,8 +118,8 @@
 
 // ================================ DIMENSIONS ================================
 #define TILE_WIDTH 300
-#define ROBOT_LENGTH 155 // mm
-#define ROBOT_WIDTH 107 // mm
+#define ROBOT_LENGTH 158 // mm
+#define ROBOT_WIDTH 100 // mm
 #define ROBOT_HEIGHT 120 // mm
 #define ROBOT_LRFCX 39 // mm and fix
 
@@ -157,7 +157,7 @@
 
 // ----------------- Ramp Constants -----------------
 #define RAMP_TOL_UP 10
-#define RAMP_TOL_DOWN 6
+#define RAMP_TOL_DOWN 8 // was 6
 
 #define RAMP_DIR      0
 #define RAMP_DIS      1

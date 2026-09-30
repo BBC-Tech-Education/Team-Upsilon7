@@ -22,9 +22,9 @@ void IMU::read()
     // reads the imu values
     bno.getEvent(&event);
 
-    x = bearing_mod(event.orientation.x - initial_x);
-    y = bearing_mod(-event.orientation.y - initial_y);
-    z = bearing_mod(event.orientation.z - initial_z);
+    x = bearing_mod(event.orientation.x); // - initial_x);
+    y = bearing_mod(event.orientation.y); // - initial_y);
+    z = bearing_mod(event.orientation.z); // - initial_z);
 
     #if DEBUG_BNO_DATA
     Serial.printf("X: %.2f\tY: %.2f\tZ: %.2f\n", x, y, z);

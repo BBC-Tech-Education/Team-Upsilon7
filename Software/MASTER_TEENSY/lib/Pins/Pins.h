@@ -2,16 +2,16 @@
 #define PINS_H
 
 
-#define XSHUT0 14
-#define XSHUT1 34
+#define XSHUT0 40
+#define XSHUT1 37
 #define XSHUT2 41
-#define XSHUT3 40
-#define XSHUT4 33
-#define XSHUT5 37
-#define XSHUT6 39
-#define XSHUT7 38
-#define XSHUT8 35
-#define XSHUT9 36
+#define XSHUT3 33
+#define XSHUT4 36
+#define XSHUT5 35
+#define XSHUT6 14
+#define XSHUT7 34
+#define XSHUT8 39
+#define XSHUT9 38
 
 #define LED_PIN 6
 #define BUTTON_PIN 23

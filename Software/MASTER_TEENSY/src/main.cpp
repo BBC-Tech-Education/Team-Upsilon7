@@ -446,12 +446,12 @@ void state_forward() {
 
     
     #if DEBUG_TARGET_DISTANCES 
-      Serial.print("Target Distance:"); Serial.println(target_distance);
+      Serial.print(front_target_dis_bad); Serial.print("Target Distance:"); Serial.println(target_distance);
     #endif
 
 
     uint16_t back_dist = lrfs.get_side_value(LRF_BACK_SIDE);
-    if (back_dist == LRF_SHORT_MAX_DIST) {
+    if (back_dist >= LRF_SHORT_MAX_DIST) {
       target_distance_back = 0;
     } else {
       target_distance_back = back_dist + (300 - (back_dist % 300) + (300 - ROBOT_LENGTH) / 2);
@@ -533,6 +533,8 @@ void state_left() {
     movement_forward(0);
     delay(400);
     lrfs.update();
+    delay(100);
+    lrfs.update();
   } 
   
   // ---------------- Function ----------------
@@ -566,6 +568,8 @@ void state_right() {
 
     movement_forward(0);
     delay(400);
+    lrfs.update();
+    delay(100);
     lrfs.update();
   } 
   
@@ -603,6 +607,8 @@ void state_back() {
       movement_forward(0);
       delay(400);
       lrfs.update();
+      delay(100);
+    lrfs.update();
 
     } else {
       turn_backward += 1;
@@ -820,8 +826,9 @@ void state_victim() {
   if(state_data & BMSK_S_NEW_STATE) {
     movement_forward(0);
     state_data &= ~BMSK_S_NEW_STATE;
+    state_data &= ~BMSK_S_VICTIM_FOUND;
     past_states.push_back(VICTIM);
-    timer_led = 0;
+    timer_led = millis();;
 
   }
   
@@ -829,17 +836,17 @@ void state_victim() {
   if(state_data & BMSK_S_RESETING) {
     current_state = RESET_SWITCH;
     state_data |= BMSK_S_NEW_STATE;
-  } else if((timer_led - millis()) > 5000) {
+  } else if((millis()- timer_led) > 5000) {
     set_tile_info(true, false, false, false, false, false, false, false);
     past_victims = 1;
 
     if (camera_data[CAM_LEFT] == 30|| camera_data[CAM_RIGHT] == 30) {
       if(past_states[past_states.size() - 2] == LEFT){
         current_state = LEFT;
-
+        
       } else if (past_states[past_states.size() - 2] == RIGHT) {
         current_state = RIGHT;
-
+        
       } else if (past_states[past_states.size() - 2] == BACK) {
         current_state = BACK;
 
@@ -853,23 +860,16 @@ void state_victim() {
       current_state = VICTIM_DROPPER;
       state_data |= BMSK_S_NEW_STATE;
     }
-  } else{
+  } else {
     led_flashing(500);
   }
-  if(state_data & BMSK_S_NEW_STATE){
+  if(current_state != VICTIM){
     return;
   }
 
 
   // ---------------- Function ----------------
   movement_forward(0);
-  if(camera_data[CAM_LEFT] == 70 || camera_data[CAM_RIGHT] == 70) {
-    // movement_forward(0);
-  } else {
-    if(timer_led == 0) {
-      timer_led = millis();
-    }
-  }
 }
 
 
@@ -889,23 +889,24 @@ void state_victim_dropper() {
     state_data |= BMSK_S_NEW_STATE;
     
   } else if(state_data & BMSK_S_VICTIM_COMPLETED) {
-    if(past_states[past_states.size() - 3] == 102){
-      current_state = LEFT;
-
-    } else if (past_states[past_states.size() - 3] == 103) {
-      current_state = RIGHT;
-
-    } else if (past_states[past_states.size() - 3] == 104) {
-      current_state = BACK;
-
-    } else if(past_states[past_states.size() - 3] == 101) {
-      current_state = FORWARD;
-    } else if(past_states[past_states.size() - 2] == RAMP_FORWARD) {
+    if(past_states[past_states.size() - 3] == LEFT){
+        current_state = LEFT;
+      
+    } else if (past_states[past_states.size() - 3] == RIGHT) {
+        current_state = RIGHT;
+        
+    } else if (past_states[past_states.size() - 3] == BACK) {
+        current_state = BACK;
+        
+    } else if(past_states[past_states.size() - 3] == FORWARD) {
+        current_state = FORWARD;
+        
+    } else if(past_states[past_states.size() - 3] == RAMP_FORWARD) {
         current_state = RAMP_FORWARD;
     }
     state_data &= ~BMSK_S_VICTIM_COMPLETED;
   } 
-  if (state_data & BMSK_S_NEW_STATE) {
+  if (current_state != VICTIM_DROPPER) {
     return;
   }
 
@@ -914,12 +915,12 @@ void state_victim_dropper() {
   movement_forward(0);
   if(camera_data[CAM_LEFT] == 10 || camera_data[CAM_LEFT] == 20) {
     victim_package(-1, (camera_data[CAM_LEFT])/10);
-     state_data |= BMSK_S_VICTIM_COMPLETED;
+    state_data |= BMSK_S_VICTIM_COMPLETED;
   }
 
   if(camera_data[CAM_RIGHT] == 10 || camera_data[CAM_RIGHT] == 20) {
     victim_package(1, (camera_data[CAM_RIGHT])/10);
-     state_data |= BMSK_S_VICTIM_COMPLETED;
+    state_data |= BMSK_S_VICTIM_COMPLETED;
   }
 }
 
@@ -1247,7 +1248,7 @@ void loop() {
 
   colour_sensor.update();
 
-  // Serial.print(camera_data[0]); Serial.println(camera_data[1]);
+  Serial.print(camera_data[0]); Serial.println(camera_data[1]);
 
   bno.read();
   

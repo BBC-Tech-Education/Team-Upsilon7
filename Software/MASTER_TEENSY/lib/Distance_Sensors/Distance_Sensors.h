@@ -31,4 +31,3 @@ class LRF_Array {
 
 #endif
 
-
