@@ -71,6 +71,37 @@ void IMU::set_target_bearing(int16_t bearing_change)
 
 
 
+void IMU::reset_target_bearing()
+{
+    float closest_heading = tile_headings[0];
+    float diff = x_bearing_180() - tile_headings[0];
+    if (diff > 180.0f) {
+        diff -= 360.0f;
+    } else if (diff < -180.0f) {
+        diff += 360.0f;
+    }
+
+    float min_difference = fabs(diff);
+    
+    for (int i = 1; i < 4; i++) {
+        diff = x_bearing_180() - tile_headings[i];
+        if (diff > 180.0f) {
+            diff -= 360.0f;
+        } else if (diff < -180.0f) {
+            diff += 360.0f;
+        }
+        float current_difference = fabs(diff);
+        if (current_difference < min_difference) {
+            min_difference = current_difference;
+            closest_heading = tile_headings[i];
+        }
+    }
+
+    target_bearing = closest_heading;
+}
+
+
+
 float IMU::x_angle_diff()
 {
     // finds the different between the target beaing and current bearing

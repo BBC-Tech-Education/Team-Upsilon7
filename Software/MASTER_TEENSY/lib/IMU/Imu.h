@@ -17,6 +17,7 @@ public:
     float z_bearing_180();
 
     void set_target_bearing(int16_t bearing_change);
+    void reset_target_bearing();
     float x_angle_diff();
 
 private:
@@ -35,5 +36,7 @@ private:
     float initial_x = 0.0f;
     float initial_y = 0.0f;
     float initial_z = 0.0f;
+
+    float tile_headings[4] = {-90.0, 0.0, 90.0, 180.0};
 };
 #endif

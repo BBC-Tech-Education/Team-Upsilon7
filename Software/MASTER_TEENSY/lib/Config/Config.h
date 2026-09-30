@@ -4,7 +4,7 @@
 
 // ================================== DEBUG ==================================
 // ----------------- General -----------------
-#define PRINTS_GENERAL 1
+#define PRINTS_GENERAL 0
 
 // ----------------- Colour -----------------
 #define PRINTS_ALL_COLOUR 0
@@ -20,7 +20,7 @@
 
 
 // --------------- LRFS ---------------------
-#define PRINTS_ALL_LRF 0
+#define PRINTS_ALL_LRF 1
 #define PRINTS_LRF_DATA 0
 #define PRINTS_TARGET_DISTANCES 0
 
@@ -143,6 +143,8 @@
 #define LRF_RIGHT_SIDE 2
 #define LRF_BACK_SIDE 3
 #define LRF_FRONT_LONG_SIDE 4
+
+#define TILE_ALIGNMENT 200
 
 
 // ----------------- Colour Constants -----------------

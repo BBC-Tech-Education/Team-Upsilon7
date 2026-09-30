@@ -72,7 +72,7 @@ void LRF_Array::update()
 
     int status = lrf_long[i].VL53L4CX_GetMeasurementDataReady(&newDataReady);
     if (status != 0 || newDataReady == 0) {
-      break;
+      continue;
     }
 
     VL53L4CX_MultiRangingData_t data;
@@ -80,7 +80,7 @@ void LRF_Array::update()
 
     if (status != 0) {
       values[LRF_SHORT_NUM + i] = 0;
-      break;
+      continue;
     }
 
     int16_t val = 0;
@@ -94,7 +94,7 @@ void LRF_Array::update()
         // Serial.print(i);
         // Serial.print("Distance Value "); Serial.print(j);Serial.print(": ");
         // Serial.println(val);
-        break;
+        continue;
       }
     }
 
@@ -148,16 +148,26 @@ uint16_t LRF_Array::get_side_value(uint8_t side)
 
 
 
-int16_t LRF_Array::tile_alignment()
+
+int16_t LRF_Array::tile_alignment(uint16_t offset = 0) // neg offset mean remove from left 
 { // finds the difference between the two sides
   uint16_t max_left = max(values[2], values[3]);
   uint16_t max_right = max(values[4], values[5]);
 
-  if (max_left > 200 && max_right > 200) {
+
+  // if(offset > 0) { 
+  //   max_left += -offset;
+  //   max_right += offset;
+  // } else if (offset < 0) {
+  //   max_left += offset;
+  //   max_right += -offset;
+  // }
+
+  if (max_left > TILE_ALIGNMENT && max_right > TILE_ALIGNMENT) {
     return 0;
-  } else if (max_left > 200) {
+  } else if (max_left > TILE_ALIGNMENT) {
     return get_side_value(LRF_RIGHT_SIDE) - ((TILE_WIDTH - ROBOT_WIDTH) / 2);
-  } else if (max_right > 200) {
+  } else if (max_right > TILE_ALIGNMENT) {
     return ((TILE_WIDTH - ROBOT_WIDTH) / 2) - get_side_value(LRF_LEFT_SIDE);
   }
   return get_side_value(LRF_RIGHT_SIDE) - get_side_value(LRF_LEFT_SIDE);

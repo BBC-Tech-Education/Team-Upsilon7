@@ -321,44 +321,75 @@ std::array<int8_t, 4> Mapping::convert_bering(float bearing, int8_t tile_availab
 
 
 
-void Mapping::soft_reset() 
-{
-    for (uint8_t i = (past_tiles.size()-1); i >= 0; i--)
-    {   
-       uint8_t  tile_id = past_tiles[i];
-        if(map[tile_id].info & BMSK_T_SILVER) {
-            current_tile_id = tile_id;
-            break;
+std::array<int8_t, 4> Mapping::convert_tiles(float bearing, uint8_t explored = 1){
+    int8_t current_tiles[4] = {
+        ((int8_t)(map[current_tile_id].left)), 
+        ((int8_t)(map[current_tile_id].front)),
+        ((int8_t)(map[current_tile_id].right)), 
+        ((int8_t)(map[current_tile_id].back))};
+    
+    for (int8_t i = 0; i < 4; i++) {
+        if (current_tiles[i] >= 0) {
+            if ((map[current_tiles[i]].info & BMSK_T_EXPLORED) && explored) {
+                current_tiles[i] = -1;
+                #if DEBUG_BLACK_TILE
+                Serial.println("DO I GET HERE???????");
+                #endif
+            } 
+            if (map[current_tiles[i]].info & BMSK_T_BLACK) {
+                current_tiles[i] = -1;
+                #if DEBUG_BLACK_TILE
+                Serial.println("DO I GET HERE???????");
+                #endif
+            }
         }
-        map[tile_id].info&= ~BMSK_T_EXPLORED;
-        past_tiles.pop_back();
-
-        //does mapping need anything
-
-        // when 0 that is the current id
-        
-        
-        
-        
-        
-        // uint8_t tile_id = 0;
-        // if (past_tiles.size() < i) {
-        //     current_tile_id = 0;
-        //     break;
-        // } else if(i >= 0 && i <= 255) {
-        //     tile_id = past_tiles[i];
-        // }
-
-
-
-        // if(map[tile_id].info & BMSK_T_SILVER) {
-        //     current_tile_id = tile_id;
-        //     break;
-        // } else {
-        //     map[tile_id].info&= ~BMSK_T_EXPLORED;
-        // }
-        
     }
+    return convert_bering(bearing, current_tiles); 
+}
+
+
+void Mapping::soft_reset() 
+{   
+    Serial.println("Sup");
+
+    if(!past_tiles.empty()) {
+        for (uint8_t i = (past_tiles.size()-1); i >= 0; i--)
+        {   
+            uint8_t  tile_id = past_tiles[i];
+            if(map[tile_id].info & BMSK_T_SILVER) {
+                current_tile_id = tile_id;
+                break;
+            }
+            map[tile_id].info&= ~BMSK_T_EXPLORED;
+            past_tiles.pop_back();
+            //past_tiles_mapping.pop_back();      
+            
+            if(past_tiles.empty()) {
+                past_tiles.push_back(0);
+                current_tile_id = 0;
+                break;
+            }
+        }
+    } 
+    
+
+    for (uint8_t i = (past_tiles_mapping.size()-1); i >= 0; i--)
+    {
+        if(past_tiles_mapping[i] == current_tile_id) {
+            for (uint8_t j = (past_tiles_mapping.size()-1); j >= 0; i--)
+            {
+                past_tiles_mapping.pop_back();
+
+                if(past_tiles_mapping.empty()) {
+                    past_tiles_mapping.push_back(0);
+                    break;
+                }
+            }  
+        }
+    }
+    
+
+    Serial.println("Sup");
     tile_printout(current_tile_id);
 }
 
@@ -591,9 +622,12 @@ uint8_t Mapping::black_tile(float bearing)
     map[next_tile_id].info |= BMSK_T_BLACK;
 
     if(current_tile_id == next_tile_id) {
-        past_tiles.pop_back();
-        past_tiles_mapping.pop_back();
-        current_tile_id = past_tiles_mapping[past_tiles_mapping.size()-1];  
+        if (!past_tiles.empty())         past_tiles.pop_back();
+        if (!past_tiles_mapping.empty()) past_tiles_mapping.pop_back();
+
+        if (!past_tiles_mapping.empty()) {
+            current_tile_id = past_tiles_mapping.back();
+        } 
     } else {
         (map[current_tile_id]).info |= BMSK_T_EXPLORED;
     }
@@ -726,23 +760,7 @@ uint8_t Mapping::follow_left_wall(float bearing)
     // then do connected tiles so it is for a heading of 0 degrees
      // at 0 degrees: left, front, right, back
 
-    int8_t current_tiles[4] = {
-        ((int8_t)(map[current_tile_id].left)), 
-        ((int8_t)(map[current_tile_id].front)),
-        ((int8_t)(map[current_tile_id].right)), 
-        ((int8_t)(map[current_tile_id].back))};
-    
-    for (int8_t i = 0; i < 4; i++) {
-        if (current_tiles[i] >= 0) {
-            if (map[current_tiles[i]].info & (BMSK_T_BLACK | BMSK_T_EXPLORED)) {
-                current_tiles[i] = -1;
-                #if DEBUG_BLACK_TILE
-                Serial.println("DO I GET HERE???????");
-                #endif
-            }
-        }
-    }
-    std::array<int8_t, 4> connected_tile = convert_bering(bearing, current_tiles);
+    std::array<int8_t, 4> connected_tile = convert_tiles(bearing, 1);
 
     #if DEGUB_DIRECTIONS
     Serial.print("Connnect Tile: "); Serial.print(connected_tile[0]); Serial.print("\t");
@@ -754,25 +772,25 @@ uint8_t Mapping::follow_left_wall(float bearing)
         // record where will move next
         next_tile_id = connected_tile[0];
         Serial.print("Next Tile ID"); Serial.println(next_tile_id);
-        return 1;
+        return 0;
 
     } else if (connected_tile[1] >= 0) { 
         // record where will move next
         next_tile_id = connected_tile[1];
         Serial.print("Next Tile ID"); Serial.println(next_tile_id);
-        return 2;
+        return 1;
 
     } else if (connected_tile[2] >= 0) {
         // record where will move next
         next_tile_id = connected_tile[2];
         Serial.print("Next Tile ID"); Serial.println(next_tile_id);
-        return 3;
+        return 2;
 
     } else {
         // record where will move next
         next_tile_id = connected_tile[3];
         Serial.print("Next Tile ID"); Serial.println(next_tile_id);
-        return 4;
+        return 3;
     }
 }
 
@@ -780,78 +798,50 @@ uint8_t Mapping::follow_left_wall(float bearing)
 
 uint8_t Mapping::mapping_alg(float bearing) 
 {
-    tile_visted = false;
 
+    // 1. Runs follow the left wall
     uint8_t direction_value = follow_left_wall(bearing);
 
-    if(!(map[current_tile_id].info & BMSK_T_EXPLORED)) { // have not been here
-        if (direction_value != 4 || next_tile_id != -1) {
-            return direction_value;
+
+    // 2. Looks if I have already been to that tile
+    if((direction_value != 3) && !(map[current_tile_id].info & BMSK_T_EXPLORED)) { // have not been here
+        return direction_value;
+    }
+
+
+    // 3. Is there a tile that is unexplored?
+    std::array<int8_t, 4> connected_tile = convert_tiles(bearing, 0);
+    for (uint8_t i = 0; i < 4; i++)
+    {
+        if((connected_tile[i] != -1) && !(map[connected_tile[i]].info & BMSK_T_EXPLORED)) {
+            next_tile_id = connected_tile[i];
+            Serial.print("Next Tile ID"); Serial.println(next_tile_id);
+            return i;
         }
     }
     
-    // have been here
-    for (uint8_t i = 0; i < past_tiles_mapping.size(); i++)
-        {
-            Serial.print(past_tiles_mapping[i]); Serial.print(" ");
+
+    // 4. Back track to last tile
+    if(past_tiles_mapping.size() > 1) {
+        next_tile_id = past_tiles_mapping[past_tiles_mapping.size() -2];
+    } else {
+        next_tile_id = 0;
+    }
+    
+    uint8_t next_direction = 3;
+
+    for (uint8_t i = 0; i < 4; i++)
+    {
+        Serial.print("STUFFFFFFFFF!!!!" ); Serial.print(next_tile_id); Serial.println(connected_tile[i]);
+        if(next_tile_id == connected_tile[i]) {
+            next_direction = i;
+            Serial.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
         }
-    Serial.println();
-
-    past_tiles_mapping.pop_back();
-
-    if (direction_value == 4) {
-        // Back track
-        Serial.println("BACKTRACKING");
-        next_tile_id = past_tiles_mapping[past_tiles_mapping.size() - 1];
-
-        Serial.print(current_tile_id); Serial.print(" "); Serial.println(next_tile_id);
-
-        for (uint8_t i = 0; i < past_tiles_mapping.size(); i++)
-        {
-            Serial.print(past_tiles_mapping[i]); Serial.print(" ");
-        }
-        Serial.println();
-
-        if (next_tile_id == map[current_tile_id].left) {
-            direction_value = 1;
-        } else if (next_tile_id == map[current_tile_id].front) {
-            direction_value = 2;
-        } else if (next_tile_id == map[current_tile_id].right) {
-            direction_value = 3;
-        } else {
-            direction_value = 4;
-        }
-
-
-        Serial.printf("ABSOLUTE NEXT TILE: %d\n", direction_value);
-
-        float closest_heading = closest_bearing(bearing);
-
-        Serial.print("Closest Heading: ");
-        Serial.println(closest_heading);
-
-        if (closest_heading == -90.0f) {
-            direction_value += 1;
-        } else if (closest_heading == 90.0f) {
-            direction_value -= 1;
-        } else if (closest_heading == 180.0f) {
-            direction_value -= 2;
-        }
-
-        Serial.print("Raw direction_value: ");
-        Serial.println(direction_value);
-
-        if (direction_value > 4) {
-            direction_value -= 4;
-        } else if (direction_value < 1) {
-            direction_value += 4;
-        }
-
-        Serial.print("FINAL direction_value: ");
-        Serial.println(direction_value);
+    }
+    
+    if (!past_tiles_mapping.empty()) {
+        past_tiles_mapping.pop_back();
     }
 
-    Serial.print(current_tile_id); Serial.print(" "); Serial.println(next_tile_id);
-
-    return direction_value;
+    return next_direction;
 }

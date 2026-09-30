@@ -16,7 +16,7 @@ class LRF_Array {
 
     uint16_t get_value(uint8_t sensor);
     uint16_t get_side_value(uint8_t side);
-    int16_t tile_alignment();
+    int16_t tile_alignment(uint16_t offset = 0);
 
   private:
     VL53L4CD lrf_short[LRF_SHORT_NUM];

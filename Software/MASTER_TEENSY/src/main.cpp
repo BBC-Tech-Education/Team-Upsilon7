@@ -29,8 +29,8 @@
 
 
 enum state_values {
-  INIT, FORWARD, LEFT, RIGHT, BACK, MAPPING, BLACK_TILE, BLUE_TILE, VICTIM, VICTIM_DROPPER,
-  RAMP, RAMP_FORWARD, RESET_SWITCH
+  INIT, FORWARD, LEFT, RIGHT, BACK, BACKWARDS, MAPPING, BLACK_TILE, BLUE_TILE, VICTIM, VICTIM_DROPPER,
+  RAMP, RAMP_FORWARD, RESET_SWITCH, LIMIT_SWITCH
 };
 
 //=========//=======================//=======================//=======================
@@ -48,6 +48,8 @@ uint16_t target_distance;
 uint16_t target_distance_back;
 uint16_t average_distance_front;
 uint16_t average_distance_back;
+uint16_t stop_dis_front; // needs setting
+uint16_t stop_dis_back; // needs setting
 uint8_t front_target_dis_bad = false;
 
 
@@ -69,7 +71,7 @@ uint8_t past_victims = 0;
 
 
 // // ---------------- Timers ----------------
-// uint32_t timer_start;
+uint32_t timer_start;
 uint32_t timer_led;
 uint32_t timer_led_flash;
 uint32_t timer_blue;
@@ -109,7 +111,7 @@ Servo_Motor front_pivot;
 Servo_Motor back_pivot;
 
 Mapping maze_map;
-PID motor_PID = PID(7.0f,0.0f,1.0f); //0.6, 0, 0.3 //17
+PID motor_PID = PID(8.0f,0.0f,1.6f); //7, 0, 1
 
 
 
@@ -164,7 +166,8 @@ uint16_t front_lrf()
 }
 
 
-uint8_t distance_conditions(uint8_t direction) {
+
+uint8_t distance_conditions(uint8_t direction) { 
   uint16_t distance = 0;
   uint16_t targ_distance = 0;
 
@@ -178,6 +181,12 @@ uint8_t distance_conditions(uint8_t direction) {
         lrfs.update();
         Serial.println("WELLLLLLLLLL THIS SUCKS");
         delay(50);
+        reset_switch_data = reset_switch.read();
+        if(state_data & BMSK_S_RESETING) {
+          current_state = RESET_SWITCH;
+          state_data |= BMSK_S_NEW_STATE;
+          return 0;
+        }
         
         return distance_conditions(direction);
       }
@@ -194,9 +203,11 @@ uint8_t distance_conditions(uint8_t direction) {
         lrfs.update();
         Serial.println("WELLLLLLLLLL THIS SUCKS");
         delay(50);
+        reset_switch_data = reset_switch.read();
         if(state_data & BMSK_S_RESETING) {
           current_state = RESET_SWITCH;
           state_data |= BMSK_S_NEW_STATE;
+          return 0;
         }
         return distance_conditions(direction);
       } else {
@@ -209,7 +220,6 @@ uint8_t distance_conditions(uint8_t direction) {
       targ_distance = target_distance;
     }
   }
-
   return (distance < targ_distance) ? direction : !direction;
 }
 
@@ -393,7 +403,8 @@ float imu_average_e(){
   return ramp_angle;
 
 }
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 
 // ---------------------------------- States -----------------------------------
 void state_init() {
@@ -420,10 +431,11 @@ void state_forward() {
     past_states.push_back(FORWARD);
     state_data &= ~BMSK_S_NEW_STATE;
 
+
     // +++++ How will this change with different distances at front and back)
     // where do i need to move to
     uint16_t front_dist = front_lrf();
-    if (front_dist == LRF_SHORT_MAX_DIST) {
+    if (front_dist >= LRF_SHORT_MAX_DIST) {
       front_target_dis_bad = true;
     } else {
       front_target_dis_bad = false;
@@ -434,7 +446,7 @@ void state_forward() {
 
     
     #if DEBUG_TARGET_DISTANCES 
-      //Serial.print("Target Distance:"); Serial.println(target_dis);
+      Serial.print("Target Distance:"); Serial.println(target_distance);
     #endif
 
 
@@ -481,6 +493,10 @@ void state_forward() {
   // ---------------- Function ----------------
   movement_forward_corrected(FORWARD_SPEED, 0);
 
+  #if DEBUG_TARGET_DISTANCES 
+      Serial.print("Target Distance:"); Serial.println(target_distance);
+  #endif
+
   if ((!(state_data & BMSK_S_SWITCH_TILE) && front_lrf() <= average_distance_front)
    || (!(state_data & BMSK_S_SWITCH_TILE) && lrfs.get_side_value(LRF_BACK_SIDE) <= average_distance_back)) { //haven't switched tile yet, lrf is telling I've moved
     state_data |= BMSK_S_SWITCH_TILE;
@@ -513,6 +529,10 @@ void state_left() {
   } else if(bno.x_angle_diff() < ANGLE_TOL) {
     current_state = FORWARD;
     state_data |= BMSK_S_NEW_STATE;
+
+    movement_forward(0);
+    delay(400);
+    lrfs.update();
   } 
   
   // ---------------- Function ----------------
@@ -543,6 +563,10 @@ void state_right() {
   } else if(bno.x_angle_diff() > -ANGLE_TOL) {
     current_state = FORWARD;
     state_data |= BMSK_S_NEW_STATE;
+
+    movement_forward(0);
+    delay(400);
+    lrfs.update();
   } 
   
   // ---------------- Function ----------------
@@ -575,6 +599,11 @@ void state_back() {
       turn_backward = 0;
       current_state = FORWARD;
       state_data |= BMSK_S_NEW_STATE;
+
+      movement_forward(0);
+      delay(400);
+      lrfs.update();
+
     } else {
       turn_backward += 1;
       state_data |= BMSK_S_NEW_STATE;
@@ -584,6 +613,35 @@ void state_back() {
   // ---------------- Function ----------------
   movement_turning(TURN_SPEED);
   
+}
+
+
+
+void state_backwards() {
+  // ----------------- Setup -----------------
+  if(state_data & BMSK_S_NEW_STATE) {
+    movement_forward(0);
+    past_states.push_back(BACKWARDS);
+    state_data &= ~BMSK_S_NEW_STATE;
+  }
+
+  // ------------ Exit Conditions ------------
+  if(state_data & BMSK_S_RESETING) {
+    current_state = RESET_SWITCH;
+    state_data |= BMSK_S_NEW_STATE;
+
+  } else if(stop_dis_front < target_distance) {
+    current_state = MAPPING;
+    state_data |= BMSK_S_NEW_STATE;
+
+  } else if(stop_dis_back > target_distance_back) {
+    current_state = MAPPING;
+    state_data |= BMSK_S_NEW_STATE;
+
+  } 
+  
+  // ---------------- Function ----------------
+  movement_forward(-FORWARD_SPEED); 
 }
 
 
@@ -620,16 +678,16 @@ void state_mapping() {
   } else if (state_data & BMSK_S_MAPPING_COMPLETED) { //mapping function completed
     state_data &= ~BMSK_S_BLUE_TILE_DONE;
 
-    if (next_state == 1) { //mapping says to move left
+    if (next_state == 0) { //mapping says to move left
       current_state = LEFT;
       state_data |= BMSK_S_NEW_STATE;
 
-    } else if (next_state == 2) { //mapping says to move forward
+    } else if (next_state == 1) { //mapping says to move forward
       //*p_timer_start = millis();
       current_state = FORWARD;
       state_data |= BMSK_S_NEW_STATE;
 
-    } else if (next_state == 3) {  //mapping says to move right
+    } else if (next_state == 2) {  //mapping says to move right
       current_state = RIGHT;
       state_data |= BMSK_S_NEW_STATE;
 
@@ -703,8 +761,25 @@ void state_black_tile() {
     state_data |= BMSK_S_NEW_STATE;
 
   } else if (distance_conditions(0)) {
-    current_state = MAPPING;
-    state_data |= BMSK_S_NEW_STATE;
+    next_state = maze_map.black_tile(bno.x_bearing_180());
+
+    if (next_state == 0) { //mapping says to move left
+      current_state = LEFT;
+      state_data |= BMSK_S_NEW_STATE;
+
+    } else if (next_state == 1) { //mapping says to move forward
+      //*p_timer_start = millis();
+      current_state = FORWARD;
+      state_data |= BMSK_S_NEW_STATE;
+
+    } else if (next_state == 2) {  //mapping says to move right
+      current_state = RIGHT;
+      state_data |= BMSK_S_NEW_STATE;
+
+    } else { //mapping says to move back
+      current_state = BACK;
+      state_data |= BMSK_S_NEW_STATE;
+    }
   } 
   
   // ---------------- Function ----------------
@@ -1035,6 +1110,7 @@ void state_reset_switch() {
     delay(100);
     bno.read();
     lrfs.update();
+    bno.reset_target_bearing();
     return;
   }
 
@@ -1069,6 +1145,9 @@ void state_update() {
 
     case BACK:
       state_back();
+      break;
+    case BACKWARDS:
+      state_backwards();
       break;
 
     case MAPPING:
@@ -1143,6 +1222,7 @@ void setup() {
 
 
 void loop() {
+  timer_start = millis();
   reset_switch_data = reset_switch.read();
   if(reset_switch_data){
     state_data |= BMSK_S_RESETING;
@@ -1170,7 +1250,10 @@ void loop() {
   // Serial.print(camera_data[0]); Serial.println(camera_data[1]);
 
   bno.read();
-
+  
+  // front_pivot.write_angle(135 + (bno.y_bearing_180()));
+  // back_pivot.write_angle(25 - (bno.y_bearing_180()));
   // run state machine
   state_update();
+  Serial.print("Timer: "); Serial.println(millis()-timer_start);
 }

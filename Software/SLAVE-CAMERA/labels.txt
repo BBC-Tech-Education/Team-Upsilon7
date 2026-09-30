@@ -1,4 +1,3 @@
 background
-omega
-phi
-psi
+H
+U

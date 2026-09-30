@@ -7,18 +7,18 @@ csi0.reset()
 csi0.pixformat(csi.RGB565)     # or csi.GRAYSCALE
 csi0.framesize(csi.QVGA)       # 320x240
 csi0.window((240, 240))        # 240x240 window
-# csi0.skip_frames(time=2000)    # let AE settle
+#csi0.skip_frames(time=2000)    # let AE settle
 
 # Load the model + Edge Impulse FOMO post-processor.
-model = ml.Model("/rom/trained.tflite", postprocess=Fomo(threshold=0.5))
+model = ml.Model("trained.tflite", postprocess=Fomo(threshold=0.5))
 
 # Labels: ml.Model auto-loads "<model_basename>.txt" (e.g. trained.txt),
 # NOT labels.txt. Either rename labels.txt -> trained.txt, or load manually:
 labels = [line.rstrip('\n') for line in open("labels.txt")] if model.labels is None else model.labels
 
 colors = [
-    (255,   0,   0), (0, 255,   0), (255, 255,   0),
-    (0,   0, 255), (255,   0, 255), (0, 255, 255),
+    (255,   0,   0), (  0, 255,   0), (255, 255,   0),
+    (  0,   0, 255), (255,   0, 255), (  0, 255, 255),
     (255, 255, 255),
 ]
 
@@ -41,7 +41,10 @@ while True:
                 continue
             label = labels[i].strip().upper()
 
-            if label == "U":
+            if label == "S":
+                pass
+
+            elif label == "U":
                 detected_victim = True
                 send_1 = True
 
