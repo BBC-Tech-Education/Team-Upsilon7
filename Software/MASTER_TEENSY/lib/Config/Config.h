@@ -13,7 +13,7 @@
 #define DEBUG_COLOUR_DATA (PRINTS_COLOUR_DATA || PRINTS_GENERAL|| PRINTS_ALL_COLOUR)
 
 // ----------------- Camera -----------------
-#define PRINTS_ALL_CAMERA 1
+#define PRINTS_ALL_CAMERA 0
 #define PRINTS_CAMERA_DATA 0
 
 #define DEBUG_CAMERA_DATA (PRINTS_CAMERA_DATA || PRINTS_GENERAL|| PRINTS_ALL_CAMERA)
@@ -176,6 +176,7 @@
 // ----------------- Camera Constants -----------------
 #define CAM_LEFT  0
 #define CAM_RIGHT 1
+#define LRF_DIFF 1.5
 
 
 // ----------------- Movement Constants -----------------

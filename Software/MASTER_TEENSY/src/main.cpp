@@ -307,7 +307,7 @@ void victim_led(){
 
 
 void victim_package(int8_t side, uint8_t number){
-  led_flashing(500);
+  //led_flashing(500);
 
   if(number == 1) {
     drop_package(side);
@@ -531,11 +531,15 @@ void state_left() {
     state_data |= BMSK_S_NEW_STATE;
 
     movement_forward(0);
-    delay(400);
+    delay(200);
     lrfs.update();
     delay(100);
     lrfs.update();
   } 
+
+  if(state_data & BMSK_S_NEW_STATE) {
+    return;
+  }
   
   // ---------------- Function ----------------
   movement_turning(-TURN_SPEED); 
@@ -567,11 +571,15 @@ void state_right() {
     state_data |= BMSK_S_NEW_STATE;
 
     movement_forward(0);
-    delay(400);
+    delay(200);
     lrfs.update();
     delay(100);
     lrfs.update();
   } 
+
+  if(state_data & BMSK_S_NEW_STATE) {
+    return;
+  }
   
   // ---------------- Function ----------------
   movement_turning(TURN_SPEED); 
@@ -605,7 +613,7 @@ void state_back() {
       state_data |= BMSK_S_NEW_STATE;
 
       movement_forward(0);
-      delay(400);
+      delay(200);
       lrfs.update();
       delay(100);
     lrfs.update();
@@ -616,6 +624,11 @@ void state_back() {
     }
     
   } 
+
+  if(state_data & BMSK_S_NEW_STATE) {
+    return;
+  }
+
   // ---------------- Function ----------------
   movement_turning(TURN_SPEED);
   
@@ -827,8 +840,16 @@ void state_victim() {
     movement_forward(0);
     state_data &= ~BMSK_S_NEW_STATE;
     state_data &= ~BMSK_S_VICTIM_FOUND;
+    past_victims = 1;
     past_states.push_back(VICTIM);
     timer_led = millis();;
+
+    camera_data[CAM_LEFT] = camera_left.process_data((lrfs.get_value(2)), (lrfs.get_value(3)));
+    camera_data[CAM_RIGHT] = camera_right.process_data((lrfs.get_value(4)), (lrfs.get_value(5)));
+
+    if(camera_data[CAM_LEFT] == 90 && camera_data[CAM_RIGHT == 90]) {
+      timer_led += 60000;
+    }
 
   }
   
@@ -838,23 +859,29 @@ void state_victim() {
     state_data |= BMSK_S_NEW_STATE;
   } else if((millis()- timer_led) > 5000) {
     set_tile_info(true, false, false, false, false, false, false, false);
-    past_victims = 1;
+    led_off();
+    delay(100);
 
-    if (camera_data[CAM_LEFT] == 30|| camera_data[CAM_RIGHT] == 30) {
+    if (camera_data[CAM_LEFT] != 10|| camera_data[CAM_RIGHT] != 10) {
       if(past_states[past_states.size() - 2] == LEFT){
         current_state = LEFT;
+        past_states.push_back(LEFT);
         
       } else if (past_states[past_states.size() - 2] == RIGHT) {
         current_state = RIGHT;
+        past_states.push_back(RIGHT);
         
       } else if (past_states[past_states.size() - 2] == BACK) {
         current_state = BACK;
+        past_states.push_back(BACK);
 
       } else if(past_states[past_states.size() - 2] == FORWARD) {
         current_state = FORWARD;
+        past_states.push_back(FORWARD);
 
       } else if(past_states[past_states.size() - 2] == RAMP_FORWARD) {
         current_state = RAMP_FORWARD;
+        past_states.push_back(RAMP_FORWARD);
       }
     } else {
       current_state = VICTIM_DROPPER;
@@ -880,6 +907,8 @@ void state_victim_dropper() {
     movement_forward(0);
     state_data &= ~BMSK_S_NEW_STATE;
     past_states.push_back(VICTIM_DROPPER);
+    led_off();
+    delay(100);
 
   }
   
@@ -891,18 +920,23 @@ void state_victim_dropper() {
   } else if(state_data & BMSK_S_VICTIM_COMPLETED) {
     if(past_states[past_states.size() - 3] == LEFT){
         current_state = LEFT;
+        past_states.push_back(LEFT);
       
     } else if (past_states[past_states.size() - 3] == RIGHT) {
         current_state = RIGHT;
+        past_states.push_back(RIGHT);
         
     } else if (past_states[past_states.size() - 3] == BACK) {
         current_state = BACK;
+        past_states.push_back(BACK);
         
     } else if(past_states[past_states.size() - 3] == FORWARD) {
         current_state = FORWARD;
+        past_states.push_back(FORWARD);
         
     } else if(past_states[past_states.size() - 3] == RAMP_FORWARD) {
         current_state = RAMP_FORWARD;
+        past_states.push_back(RAMP_FORWARD);
     }
     state_data &= ~BMSK_S_VICTIM_COMPLETED;
   } 
@@ -913,12 +947,12 @@ void state_victim_dropper() {
 
   // ---------------- Function ----------------
   movement_forward(0);
-  if(camera_data[CAM_LEFT] == 10 || camera_data[CAM_LEFT] == 20) {
+  if(camera_data[CAM_LEFT] == 10) {
     victim_package(-1, (camera_data[CAM_LEFT])/10);
     state_data |= BMSK_S_VICTIM_COMPLETED;
   }
 
-  if(camera_data[CAM_RIGHT] == 10 || camera_data[CAM_RIGHT] == 20) {
+  if(camera_data[CAM_RIGHT] == 10) {
     victim_package(1, (camera_data[CAM_RIGHT])/10);
     state_data |= BMSK_S_VICTIM_COMPLETED;
   }
@@ -1193,6 +1227,7 @@ void state_update() {
 
 
 void setup() {
+  //delay(5000);
   neopixel.begin();
 
   lrfs.init();
@@ -1238,9 +1273,9 @@ void loop() {
 
   lrfs.update();
 
-  // victims, comment if not needed
-  camera_data[CAM_LEFT] = camera_left.read_camera();
-  camera_data[CAM_RIGHT] = camera_right.read_camera();
+  camera_data[CAM_LEFT] = camera_left.process_data((lrfs.get_value(2)), (lrfs.get_value(3)));
+  camera_data[CAM_RIGHT] = camera_right.process_data((lrfs.get_value(4)), (lrfs.get_value(5)));
+  
   if((camera_data[CAM_LEFT] && !past_victims && camera_data[CAM_LEFT] != 90) ||
     (camera_data[CAM_RIGHT] && !past_victims && camera_data[CAM_RIGHT] != 90)) {
       state_data |= BMSK_S_VICTIM_FOUND;
@@ -1248,7 +1283,7 @@ void loop() {
 
   colour_sensor.update();
 
-  Serial.print(camera_data[0]); Serial.println(camera_data[1]);
+  Serial.print(camera_data[0]); Serial.print(" "); Serial.println(camera_data[1]);
 
   bno.read();
   
@@ -1256,5 +1291,5 @@ void loop() {
   // back_pivot.write_angle(25 - (bno.y_bearing_180()));
   // run state machine
   state_update();
-  Serial.print("Timer: "); Serial.println(millis()-timer_start);
+  // Serial.print("Timer: "); Serial.println(millis()-timer_start);
 }

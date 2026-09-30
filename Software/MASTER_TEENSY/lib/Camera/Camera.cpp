@@ -19,7 +19,7 @@ uint8_t CAMERA::read_camera() {
 
     if (openMV->available()) { // Check if there is data
         //Serial.print("data");
-        Serial.println("HERE 6");
+        // Serial.println("HERE 6");
         while(openMV->available()) { // Finds the lastest value 
             camera_value = openMV->read();
         }
@@ -48,4 +48,23 @@ uint8_t CAMERA::read_camera() {
 
     return camera_value; // returs the camera value
 
+}
+
+uint8_t CAMERA::process_data(uint16_t sensor_1, uint16_t sensor_2) {
+    uint8_t cam_data = read_camera();
+    if(sensor_1 > 255 || sensor_2 > 255) {
+        return 90;
+    } else if (sensor_1 < sensor_2) {
+        if(sensor_1*LRF_DIFF < sensor_2) {
+            return 90;
+        }
+    } else {
+        if(sensor_1*LRF_DIFF < sensor_2) {
+            return 90;
+        }   
+    }
+    if((cam_data != 30) && (cam_data != 10)) {
+        cam_data = 90;
+    }
+    return cam_data;
 }
