@@ -18,6 +18,7 @@ public:
 private:
     HardwareSerialIMXRT* openMV; 
     uint8_t camera_value;
+    uint8_t past_data = 0;
 
 };
 #endif
