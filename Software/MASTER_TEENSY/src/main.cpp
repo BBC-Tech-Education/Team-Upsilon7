@@ -30,7 +30,7 @@
 
 enum state_values {
   INIT, FORWARD, LEFT, RIGHT, BACK, BACKWARDS, MAPPING, BLACK_TILE, BLUE_TILE, VICTIM, VICTIM_DROPPER,
-  RAMP, RAMP_FORWARD, RESET_SWITCH, LIMIT_SWITCH
+  RAMP, RAMP_FORWARD, RESET_SWITCH, LIMIT_SWITCH, END_STATE
 };
 
 //=========//=======================//=======================//=======================
@@ -1158,6 +1158,29 @@ void state_reset_switch() {
   
 }
 
+void state_end_state() {
+  // ----------------- Setup -----------------
+  if (state_data & BMSK_S_NEW_STATE) {
+    past_states.push_back(END_STATE);
+    state_data &= ~BMSK_S_NEW_STATE;
+  }
+
+  // ------------ Exit Conditions ------------
+  if(state_data & BMSK_S_RESETING) {
+    current_state = RESET_SWITCH;
+    state_data |= BMSK_S_NEW_STATE;
+
+  }
+
+  if(state_data & BMSK_S_NEW_STATE) {
+    return;
+  }
+
+  // ---------------- Function ----------------
+  movement_forward(0);
+  led_flashing(500);
+}
+
 
 
 void state_update() {
@@ -1216,6 +1239,10 @@ void state_update() {
     case RESET_SWITCH:
       state_reset_switch();
       break;
+    
+    case END_STATE:
+      state_end_state();
+      break;
 
     default:
       break;
@@ -1265,6 +1292,7 @@ void loop() {
   } else {
     state_data &= ~BMSK_S_RESETING;
   }
+  
   #if DEBUG_STATE_DATA
   Serial.print("Current State: "); Serial.print(current_state); 
   Serial.print(" Reset Switch Data: "); Serial.print(reset_switch_data);
@@ -1293,3 +1321,4 @@ void loop() {
   state_update();
   // Serial.print("Timer: "); Serial.println(millis()-timer_start);
 }
+

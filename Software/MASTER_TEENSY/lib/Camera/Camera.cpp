@@ -63,8 +63,10 @@ uint8_t CAMERA::process_data(uint16_t sensor_1, uint16_t sensor_2) {
             return 90;
         }   
     }
+
     if((cam_data != 30) && (cam_data != 10)) {
         cam_data = 90;
     }
+    
     return cam_data;
 }

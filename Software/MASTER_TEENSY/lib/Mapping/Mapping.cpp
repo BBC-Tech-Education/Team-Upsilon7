@@ -832,10 +832,10 @@ uint8_t Mapping::mapping_alg(float bearing)
 
     for (uint8_t i = 0; i < 4; i++)
     {
-        Serial.print("STUFFFFFFFFF!!!!" ); Serial.print(next_tile_id); Serial.println(connected_tile[i]);
+        // Serial.print("STUFFFFFFFFF!!!!" ); Serial.print(next_tile_id); Serial.println(connected_tile[i]);
         if(next_tile_id == connected_tile[i]) {
             next_direction = i;
-            Serial.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+            // Serial.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
         }
     }
     
@@ -844,4 +844,25 @@ uint8_t Mapping::mapping_alg(float bearing)
     }
 
     return next_direction;
+}
+
+
+
+uint8_t Mapping::start_tile() {
+    if((map[current_tile_id].location.x == 0) && (map[current_tile_id].location.y == 0) 
+        && (map[current_tile_id].location.z == 0)) {
+
+        uint8_t unexplored_num = 0;
+        for (size_t i = 0; i < tile_num; i++)
+        {
+            if(!((map[i].info) & BMSK_T_EXPLORED)) {
+                unexplored_num ++;
+            }
+        }
+        
+        if (!unexplored_num) {
+            return 1;
+        }
+    }
+    return 0;
 }
