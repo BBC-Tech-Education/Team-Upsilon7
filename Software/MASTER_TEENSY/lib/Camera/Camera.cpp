@@ -40,11 +40,12 @@ uint8_t CAMERA::process_data(uint16_t sensor_1, uint16_t sensor_2) {
         return 90;
 
     } else {
-        float difference = (sensor_1 / sensor_2);
+        float difference = ((float)sensor_1 / (float)sensor_2);
         if(difference < 1.0f) {
             difference = (1.0f / difference); 
         }
         if(LRF_DIFF < difference) {
+            // Serial.print("Hi "); Serial.println(difference);
             past_data = 90;
             return 90;
         }
@@ -63,14 +64,16 @@ uint8_t CAMERA::process_data(uint16_t sensor_1, uint16_t sensor_2) {
     // }
 
     if((cam_data != 10) && (cam_data != 30)) {
+        // Serial.println("Hello");
         cam_data = 90;
     }
 
     if(past_data == cam_data) {
+        // Serial.println("HellOOO");
         return cam_data;
     }
 
-    past_data = 90;
+    past_data = cam_data;
     return 90;
 }
 

@@ -1129,15 +1129,17 @@ void state_reset_switch() {
     movement_forward(0);
     past_states.push_back(RESET_SWITCH);
     state_data &= ~BMSK_S_NEW_STATE;
-
+    Serial.println("Stop 1");
     maze_map.soft_reset();
     state_data &= ~BMSK_S_MAP_RESETED;
     state_data |= BMSK_S_RESETING;
+    Serial.println("Stop 2");
 
   }
   
   // ------------ Exit Conditions ------------  
   if (state_data & BMSK_S_MAP_RESETED) {
+    Serial.println("Stop 3");
     current_state = MAPPING;
     state_data |= BMSK_S_NEW_STATE;
     state_data &= ~BMSK_S_RESETING;
@@ -1154,7 +1156,9 @@ void state_reset_switch() {
   movement_forward(0);
   if(!reset_switch_data) {
     state_data |= BMSK_S_MAP_RESETED;
+    Serial.println("Stop 4");
   }
+  Serial.println("Stop 5");
   
 }
 
@@ -1292,7 +1296,7 @@ void loop() {
   } else {
     state_data &= ~BMSK_S_RESETING;
   }
-  
+
   #if DEBUG_STATE_DATA
   Serial.print("Current State: "); Serial.print(current_state); 
   Serial.print(" Reset Switch Data: "); Serial.print(reset_switch_data);

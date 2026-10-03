@@ -353,8 +353,10 @@ void Mapping::soft_reset()
     Serial.println("Sup");
 
     if(!past_tiles.empty()) {
+        Serial.println("Sup 1");
         for (uint8_t i = (past_tiles.size()-1); i >= 0; i--)
         {   
+            Serial.println("Sup 2");
             uint8_t  tile_id = past_tiles[i];
             if(map[tile_id].info & BMSK_T_SILVER) {
                 current_tile_id = tile_id;
@@ -365,6 +367,7 @@ void Mapping::soft_reset()
             //past_tiles_mapping.pop_back();      
             
             if(past_tiles.empty()) {
+                Serial.println("Sup 3");
                 past_tiles.push_back(0);
                 current_tile_id = 0;
                 break;
@@ -373,7 +376,7 @@ void Mapping::soft_reset()
     } 
     
 
-    for (uint8_t i = (past_tiles_mapping.size()-1); i >= 0; i--)
+    for (int16_t i = (past_tiles_mapping.size()-1); i >= 0; i--)
     {
         if(past_tiles_mapping[i] == current_tile_id) {
             for (uint8_t j = (past_tiles_mapping.size()-1); j >= 0; i--)
