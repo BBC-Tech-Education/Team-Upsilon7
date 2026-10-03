@@ -20,7 +20,7 @@
 
 
 // --------------- LRFS ---------------------
-#define PRINTS_ALL_LRF 0
+#define PRINTS_ALL_LRF 1
 #define PRINTS_LRF_DATA 0
 #define PRINTS_TARGET_DISTANCES 0
 

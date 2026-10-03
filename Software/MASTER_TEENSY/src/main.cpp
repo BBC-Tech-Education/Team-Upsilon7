@@ -50,7 +50,7 @@ uint16_t average_distance_front;
 uint16_t average_distance_back;
 uint16_t stop_dis_front; // needs setting
 uint16_t stop_dis_back; // needs setting
-uint8_t front_target_dis_bad = false;
+uint8_t front_target_dis_bad = 0;
 
 
 // // ---------------- Black Tile ----------------
@@ -453,6 +453,10 @@ void state_forward() {
 
     movement_forward(0);
     delay(200);
+    lrfs.update();
+
+    delay(200);
+    lrfs.update();
 
     if (victim_stuff()) {
       return;
@@ -460,10 +464,10 @@ void state_forward() {
     // +++++ How will this change with different distances at front and back)
     // where do i need to move to
     uint16_t front_dist = front_lrf();
-    if (front_dist >= LRF_SHORT_MAX_DIST) {
-      front_target_dis_bad = true;
+    if (front_dist >= (LRF_SHORT_MAX_DIST-50)) {
+      front_target_dis_bad = 1;
     } else {
-      front_target_dis_bad = false;
+      front_target_dis_bad = 0;
       int16_t distance_to_move = ((front_dist % 300) + (300 - ROBOT_LENGTH)/2 + ROBOT_LENGTH); // find how much to move forward
       int16_t target_dis = front_lrf() - distance_to_move + MOVEMENT_OFFSET;// 150;
       target_distance = max(target_dis, 60);
@@ -710,11 +714,6 @@ void state_mapping() {
     current_state = VICTIM;
     state_data |= BMSK_S_NEW_STATE;
 
-  } else if (colour_sensor.see_colour(BLUE) && !(state_data & BMSK_S_BLUE_TILE_DONE)) { //sees blue for the first time
-    set_tile_info(false,false,false,false,true,false,false,false);
-    current_state = BLUE_TILE;
-    state_data |= BMSK_S_NEW_STATE;
-
   }  else if (state_data & BMSK_S_MAPPING_COMPLETED) { //mapping function completed
     state_data &= ~BMSK_S_BLUE_TILE_DONE;
 
@@ -787,9 +786,9 @@ void state_black_tile() {
     
     uint16_t front_dist = front_lrf();
     if (front_dist == LRF_SHORT_MAX_DIST) {
-      front_target_dis_bad = true;
+      front_target_dis_bad = 1;
     } else {
-      front_target_dis_bad = false;
+      front_target_dis_bad = 0;
       distance_to_move = 300 - (front_dist % 300) + (300 - ROBOT_LENGTH)/2;
       target_distance = front_dist + distance_to_move;
     }
@@ -1057,7 +1056,7 @@ void state_ramp_forward() {
     (290-(lrfs.get_side_value(LRF_FRONT_SHORT_SIDE) % 300));
     int16_t target_dis = front_lrf() - distance_to_move;
     target_distance = target_dis < 60 ? 60 : target_dis;
-    front_target_dis_bad = false;
+    front_target_dis_bad = 0;
 
 
     uint16_t back_dist = lrfs.get_side_value(LRF_BACK_SIDE);
@@ -1306,6 +1305,7 @@ void loop() {
   #if DEBUG_STATE_DATA
   Serial.print("Current State: "); Serial.print(current_state); 
   Serial.print(" Reset Switch Data: "); Serial.print(reset_switch_data);
+  Serial.print(" Front Bad: "); Serial.print(front_target_dis_bad);
   Serial.print(" Target Distance: "); Serial.println(target_distance);
   #endif
 
