@@ -460,8 +460,8 @@ void state_forward() {
 
     Serial.printf("Target Distance Front: %d\tTarget Distance Back: %d\n", target_distance, target_distance_back);
 
-    average_distance_front = ((target_distance + front_lrf())/2);
-    average_distance_back = (target_distance_back + back_dist) / 2;
+    average_distance_front = ((front_lrf()) - (target_distance/2)); // maybe???
+    average_distance_back = (back_dist - (target_distance_back/2)) ;
   }
 
   // ------------ Exit Conditions ------------
@@ -498,8 +498,8 @@ void state_forward() {
       Serial.print("Target Distance:"); Serial.println(target_distance);
   #endif
 
-  if ((!(state_data & BMSK_S_SWITCH_TILE) && front_lrf() <= average_distance_front)
-   || (!(state_data & BMSK_S_SWITCH_TILE) && lrfs.get_side_value(LRF_BACK_SIDE) <= average_distance_back)) { //haven't switched tile yet, lrf is telling I've moved
+  if ((!(state_data & BMSK_S_SWITCH_TILE) && front_lrf() >= average_distance_front)
+   || (!(state_data & BMSK_S_SWITCH_TILE) && lrfs.get_side_value(LRF_BACK_SIDE) >= average_distance_back)) { //haven't switched tile yet, lrf is telling I've moved
     state_data |= BMSK_S_SWITCH_TILE;
     maze_map.switch_current_tile();
     past_victims = maze_map.victims(); //check if victims have been saved
@@ -717,6 +717,7 @@ void state_mapping() {
     }
     state_data &= ~BMSK_S_MAPPING_COMPLETED;
   }
+
   if(state_data & BMSK_S_NEW_STATE){
     return;
   }
@@ -732,7 +733,7 @@ void state_mapping() {
 
 
   for (uint8_t i = 0; i < 4; i++) {
-      if(side_distances[i] > 250) { // may need to be changed
+      if(side_distances[i] > 300) { // may need to be changed was 250
         tile_available[i] = 1;
       }
   }

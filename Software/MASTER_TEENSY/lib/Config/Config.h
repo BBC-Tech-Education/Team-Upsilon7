@@ -43,7 +43,7 @@
 
 
 // ----------------- Mapping -----------------
-#define PRINTS_ALL_MAPPING 0
+#define PRINTS_ALL_MAPPING 1
 
 #define PRINTS_CREATE_TILE 0
 #define PRINTS_CURRENT_TILE 0
