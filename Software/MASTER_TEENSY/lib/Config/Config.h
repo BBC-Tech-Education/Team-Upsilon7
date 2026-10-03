@@ -147,6 +147,10 @@
 
 #define TILE_ALIGNMENT 200
 
+#define FRONT_BAD 0
+#define BACK_BAD 1
+#define LONG_BAD 2
+
 
 // ----------------- Colour Constants -----------------
 #define COLOUR_NUM 4

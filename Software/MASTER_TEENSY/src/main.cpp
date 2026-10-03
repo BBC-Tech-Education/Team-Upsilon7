@@ -2,6 +2,10 @@
 
 // Things to remrber
 // led and package at same time
+// Check ramp i looking good
+// Limit switches
+// Movement better
+// Fix Black Tile
 //speed
 #include <math.h>
 #include <Arduino.h>
@@ -54,7 +58,7 @@ uint16_t average_distance_front;
 uint16_t average_distance_back;
 uint16_t stop_dis_front; // needs setting
 uint16_t stop_dis_back; // needs setting
-uint8_t front_target_dis_bad = 0;
+uint8_t target_dis_bad[3] = {0, 0, 0};
 
 
 // // ---------------- Black Tile ----------------
@@ -112,8 +116,6 @@ CAMERA camera_right = CAMERA(&Serial2);
 Switch reset_switch;
 
 Servo_Motor dropper;
-Servo_Motor front_pivot;
-Servo_Motor back_pivot;
 
 Mapping maze_map;
 PID motor_PID = PID(12.0f,0.0f,2.4f); //8,0,1.6
@@ -148,6 +150,7 @@ void movement_forward_corrected(float speed, float offset) {
 void movement_turning(int speed) {
   motors.move(speed, -speed);  
 }
+
 
 void movement_turning_corrected(int speed) {
   float angle = bno.x_bearing_180();
@@ -185,51 +188,32 @@ uint8_t distance_conditions(uint8_t direction) {
   uint16_t long_dist = lrfs.get_side_value(LRF_FRONT_LONG_SIDE);
   uint16_t back_dist = lrfs.get_side_value(LRF_BACK_SIDE);
 
-  if (short_dist == 0 || short_dist >= LRF_SHORT_MAX_DIST) {
-    if (back_dist == 0 || back_dist >= LRF_SHORT_MAX_DIST) {
-      if (long_dist == 0 || long_dist >= LRF_LONG_MAX_DIST || front_target_dis_bad) {
-        lrfs.update();
-        Serial.println("WELLLLLLLLLL THIS SUCKS");
-        delay(50);
-        reset_switch_data = reset_switch.read();
-        if(state_data & BMSK_S_RESETING) {
-          current_state = RESET_SWITCH;
-          state_data |= BMSK_S_NEW_STATE;
-          return 0;
-        }
-        
-        return distance_conditions(direction);
-      }
-      distance = long_dist;
-      targ_distance = target_distance;
-    } else {
-      distance = back_dist;
-      targ_distance = target_distance_back;
-      direction = !direction;
-    }
+  if(!(target_dis_bad[FRONT_BAD]) && (short_dist != 0) && !(short_dist >= LRF_SHORT_MAX_DIST)) {
+    distance = short_dist;
+    targ_distance = target_distance;
+
+  } else if (!(target_dis_bad[BACK_BAD]) && (back_dist != 0) && !(back_dist >= LRF_SHORT_MAX_DIST)) {
+    distance = back_dist;
+    targ_distance = target_distance_back;
+    direction = !direction;
+
+  } else if (!(target_dis_bad[LONG_BAD]) && long_dist != 0 && !(long_dist >= LRF_LONG_MAX_DIST)) {
+    distance = long_dist;
+    targ_distance = target_distance;
+
   } else {
-    if (front_target_dis_bad) {
-      if (back_dist == 0 || back_dist >= LRF_SHORT_MAX_DIST) {
-        lrfs.update();
-        Serial.println("WELLLLLLLLLL THIS SUCKS");
-        delay(50);
-        reset_switch_data = reset_switch.read();
-        if(state_data & BMSK_S_RESETING) {
-          current_state = RESET_SWITCH;
-          state_data |= BMSK_S_NEW_STATE;
-          return 0;
-        }
-        return distance_conditions(direction);
-      } else {
-        distance = back_dist;
-        targ_distance = target_distance_back;
-        direction = !direction;
-      }
-    } else {
-      distance = short_dist;
-      targ_distance = target_distance;
+    lrfs.update();
+    Serial.println("WELLLLLLLLLL THIS SUCKS");
+    delay(50);
+    reset_switch_data = reset_switch.read();
+    if(state_data & BMSK_S_RESETING) {
+      current_state = RESET_SWITCH;
+      state_data |= BMSK_S_NEW_STATE;
+      return 0;
     }
+    return distance_conditions(direction);
   }
+
   return (distance < targ_distance) ? direction : !direction;
 }
 
@@ -329,16 +313,26 @@ void victim_package(int8_t side, uint8_t number){
 }
 
 
+uint8_t victim_stuff() {
+  camera_data[CAM_LEFT] = camera_left.process_data((lrfs.get_value(2)), (lrfs.get_value(3)));
+    camera_data[CAM_RIGHT] = camera_right.process_data((lrfs.get_value(4)), (lrfs.get_value(5)));
 
-// ---------------------------------- Lrf servo ----------------------------------
-void pivoting_lrf_front(){
-  front_pivot.write_angle((90-int16_t(bno.y_bearing_180())));
+    if((camera_data[CAM_LEFT] && !past_victims && camera_data[CAM_LEFT] != 90) ||
+    (camera_data[CAM_RIGHT] && !past_victims && camera_data[CAM_RIGHT] != 90)) {
+      Serial.println("DO I get here");
+      state_data |= BMSK_S_VICTIM_FOUND;
+      vicitm_type[0] = camera_data[0];
+      vicitm_type[1] = camera_data[1];
+    }
+    
+    if((state_data & BMSK_S_VICTIM_FOUND) && !past_victims) {
+      current_state = VICTIM;
+      state_data |= BMSK_S_NEW_STATE;
+      return 1;
+    }
+    return 0;
 }
 
-
-void pivoting_lrf_back(){
-  back_pivot.write_angle((90+int16_t(bno.y_bearing_180())));
-}
 
 
 
@@ -414,26 +408,6 @@ float imu_average_e(){
 
 }
 
-uint8_t victim_stuff() {
-  camera_data[CAM_LEFT] = camera_left.process_data((lrfs.get_value(2)), (lrfs.get_value(3)));
-    camera_data[CAM_RIGHT] = camera_right.process_data((lrfs.get_value(4)), (lrfs.get_value(5)));
-
-    if((camera_data[CAM_LEFT] && !past_victims && camera_data[CAM_LEFT] != 90) ||
-    (camera_data[CAM_RIGHT] && !past_victims && camera_data[CAM_RIGHT] != 90)) {
-      Serial.println("DO I get here");
-      state_data |= BMSK_S_VICTIM_FOUND;
-      vicitm_type[0] = camera_data[0];
-      vicitm_type[1] = camera_data[1];
-    }
-    
-    if((state_data & BMSK_S_VICTIM_FOUND) && !past_victims) {
-      current_state = VICTIM;
-      state_data |= BMSK_S_NEW_STATE;
-      return 1;
-    }
-    return 0;
-}
-
 
 // ---------------------------------- States -----------------------------------
 void state_init() {
@@ -472,34 +446,50 @@ void state_forward() {
     }
     // +++++ How will this change with different distances at front and back)
     // where do i need to move to
-    uint16_t front_dist = lrfs.get_side_value(LRF_FRONT_SHORT_SIDE);
-    if (front_dist >= (LRF_SHORT_MAX_DIST-150)) {
-      front_target_dis_bad = 1;
-    } else {
-      front_target_dis_bad = 0;
-      int16_t distance_to_move = ((front_dist % 300) + (300 - ROBOT_LENGTH)/2 + ROBOT_LENGTH); // find how much to move forward
-      int16_t target_dis = front_lrf() - distance_to_move + MOVEMENT_OFFSET;// 150;
+    target_dis_bad[FRONT_BAD] = 0;
+    target_dis_bad[BACK_BAD] = 0;
+    target_dis_bad[LONG_BAD] = 0;
+
+    if((lrfs.get_side_value(LRF_FRONT_SHORT_SIDE))>= (LRF_SHORT_MAX_DIST-100)) {
+      target_dis_bad[FRONT_BAD] = 1;
+    }
+    if((lrfs.get_side_value(LRF_BACK_SIDE))>= (LRF_SHORT_MAX_DIST-100)) {
+      target_dis_bad[BACK_BAD] = 1;
+    }
+    if(((lrfs.get_side_value(LRF_FRONT_LONG_SIDE))>= LRF_LONG_MAX_DIST) || 
+    (((lrfs.get_side_value(LRF_FRONT_LONG_SIDE))<= LRF_LONG_INVALID_DIST))) {
+      target_dis_bad[LONG_BAD] = 1;
+    }
+
+    if(!(target_dis_bad[FRONT_BAD])) { // front short are valid
+      int16_t distance_to_move = (((lrfs.get_side_value(LRF_FRONT_SHORT_SIDE)) % 300) 
+      + (300 - ROBOT_LENGTH)/2 + ROBOT_LENGTH); // find how much to move forward
+      int16_t target_dis = (lrfs.get_side_value(LRF_FRONT_SHORT_SIDE)) - distance_to_move + MOVEMENT_OFFSET;// 150;
       target_distance = max(target_dis, 60);
+
+    } else if(!(target_dis_bad[BACK_BAD])) { // back short are valid
+      target_distance_back = (lrfs.get_side_value(LRF_BACK_SIDE)) + 
+      (300 - ((lrfs.get_side_value(LRF_BACK_SIDE)) % 300) + (300 - ROBOT_LENGTH) / 2);
+
+    } else { // falling back on long sensors
+      int16_t distance_to_move = (((lrfs.get_side_value(LRF_FRONT_LONG_SIDE)) % 300) 
+      + (300 - ROBOT_LENGTH)/2 + ROBOT_LENGTH); // find how much to move forward
+      int16_t target_dis = (lrfs.get_side_value(LRF_FRONT_LONG_SIDE)) - distance_to_move + MOVEMENT_OFFSET;// 150;
     }
 
     
     #if DEBUG_TARGET_DISTANCES 
-      Serial.print(front_target_dis_bad); Serial.print("Target Distance:"); Serial.println(target_distance);
+      Serial.print(target_dis_bad[0]); Serial.print(" "); 
+      Serial.print(target_dis_bad[1]); Serial.print(" "); 
+      Serial.print(target_dis_bad[2]); Serial.print(" "); 
+      Serial.print("Target Distance:"); Serial.println(target_distance);
     #endif
 
-
-    uint16_t back_dist = lrfs.get_side_value(LRF_BACK_SIDE);
-    if (back_dist >= LRF_SHORT_MAX_DIST) {
-      target_distance_back = 0;
-    } else {
-      target_distance_back = back_dist + (300 - (back_dist % 300) + (300 - ROBOT_LENGTH) / 2);
-    }
 
     Serial.printf("Target Distance Front: %d\tTarget Distance Back: %d\n", target_distance, target_distance_back);
 
     average_distance_front = ((front_lrf()) - (target_distance/2)); // maybe???
-    average_distance_back = (back_dist - (target_distance_back/2)) ;
-
+    average_distance_back = ((lrfs.get_side_value(LRF_BACK_SIDE)) - (target_distance_back/2)) ;
   }
 
   // ------------ Exit Conditions ------------
@@ -784,22 +774,35 @@ void state_black_tile() {
 
     set_tile_info(false, true, true, false, false, false, false, false);
 
-    uint16_t back_dist = lrfs.get_side_value(LRF_BACK_SIDE);
-    int16_t distance_to_move;
-    if (back_dist == LRF_SHORT_MAX_DIST) {
-      target_distance_back = 0;
-    } else {
-      distance_to_move = ((back_dist % 300) - ((300 - ROBOT_LENGTH)/2));
-      target_distance_back = back_dist - distance_to_move;
+    target_dis_bad[FRONT_BAD] = 0;
+    target_dis_bad[BACK_BAD] = 0;
+    target_dis_bad[LONG_BAD] = 0;
+
+    if((lrfs.get_side_value(LRF_FRONT_SHORT_SIDE))>= LRF_SHORT_MAX_DIST-100) {
+      target_dis_bad[FRONT_BAD] = 1;
     }
-    
-    uint16_t front_dist = front_lrf();
-    if (front_dist >= (LRF_SHORT_MAX_DIST-100)) {
-      front_target_dis_bad = 1;
-    } else {
-      front_target_dis_bad = 0;
-      distance_to_move = 300 - (front_dist % 300) + (300 - ROBOT_LENGTH)/2;
-      target_distance = front_dist + distance_to_move;
+    if((lrfs.get_side_value(LRF_BACK_SIDE))>= LRF_SHORT_MAX_DIST-100) {
+      target_dis_bad[BACK_BAD] = 1;
+    }
+    if(((lrfs.get_side_value(LRF_FRONT_SHORT_SIDE))>= LRF_LONG_MAX_DIST) || 
+    (((lrfs.get_side_value(LRF_FRONT_SHORT_SIDE))<= LRF_LONG_INVALID_DIST))) {
+      target_dis_bad[LONG_BAD] = 1;
+    }
+
+    if(!(target_dis_bad[BACK_BAD])) { // back short are valid
+      target_distance_back = (lrfs.get_side_value(LRF_BACK_SIDE)) + 
+      (300 - ((lrfs.get_side_value(LRF_BACK_SIDE)) % 300) + (300 - ROBOT_LENGTH) / 2);
+
+    } else if(!(target_dis_bad[FRONT_BAD])) { // front short are valid
+      int16_t distance_to_move = (((lrfs.get_side_value(LRF_FRONT_SHORT_SIDE)) % 300) 
+      + (300 - ROBOT_LENGTH)/2 + ROBOT_LENGTH); // find how much to move forward
+      int16_t target_dis = (lrfs.get_side_value(LRF_FRONT_SHORT_SIDE)) - distance_to_move + MOVEMENT_OFFSET;// 150;
+      target_distance = max(target_dis, 60);
+
+    } else { // falling back on long sensors
+      int16_t distance_to_move = (((lrfs.get_side_value(LRF_FRONT_LONG_SIDE)) % 300) 
+      + (300 - ROBOT_LENGTH)/2 + ROBOT_LENGTH); // find how much to move forward
+      int16_t target_dis = (lrfs.get_side_value(LRF_FRONT_LONG_SIDE)) - distance_to_move + MOVEMENT_OFFSET;// 150;
     }
   }
   
@@ -1065,7 +1068,7 @@ void state_ramp_forward() {
     (290-(lrfs.get_side_value(LRF_FRONT_SHORT_SIDE) % 300));
     int16_t target_dis = front_lrf() - distance_to_move;
     target_distance = target_dis < 60 ? 60 : target_dis;
-    front_target_dis_bad = 0;
+    target_dis_bad[FRONT_BAD] = 0;
 
 
     uint16_t back_dist = lrfs.get_side_value(LRF_BACK_SIDE);
@@ -1113,10 +1116,6 @@ void state_ramp_forward() {
     current_state = RESET_SWITCH;
     state_data |= BMSK_S_NEW_STATE;
     
-  } else if (state_data & BMSK_S_VICTIM_FOUND) {
-    current_state = VICTIM;
-    state_data |= BMSK_S_NEW_STATE;
-
   } else if (colour_sensor.see_colour(BLACK)) {
     current_state = BLACK_TILE;
     state_data |= BMSK_S_NEW_STATE;
@@ -1174,6 +1173,31 @@ void state_reset_switch() {
   
 }
 
+
+
+void state_limit_switch() {
+  // ----------------- Setup -----------------
+  if(state_data & BMSK_S_NEW_STATE) {
+    movement_forward(0);
+
+    state_data &= ~BMSK_S_NEW_STATE;
+    past_states.push_back(LIMIT_SWITCH);
+  }
+  
+  // ------------ Exit Conditions ------------
+  if(state_data & BMSK_S_RESETING) {
+    current_state = RESET_SWITCH;
+    state_data |= BMSK_S_NEW_STATE;
+    
+  } 
+  if (state_data & BMSK_S_NEW_STATE) {
+    return;
+  }
+
+
+  // ---------------- Function ----------------
+  
+}
 
 
 void state_end_state() {
@@ -1258,6 +1282,8 @@ void state_update() {
       state_reset_switch();
       break;
     
+    case LIMIT_SWITCH:
+      state_limit_switch();
     case END_STATE:
       state_end_state();
       break;
@@ -1272,9 +1298,9 @@ void state_update() {
 
 
 void setup() {
-  //delay(5000);
+  // delay(5000);
   neopixel.begin();
-
+  Serial.println("Hello");
   lrfs.init();
   motors.init(MOTOR_LF,MOTOR_LB,MOTOR_RF,MOTOR_RB);
 
@@ -1288,8 +1314,6 @@ void setup() {
   camera_left.init();
   camera_right.init();
 
-  back_pivot.attach(PIVET_BACK_PIN, false);
-  front_pivot.attach(PIVET_FRONT_PIN, false);
   dropper.attach(DROPPER_PIN, true, 0, 180, 900, 2000);
 
   reset_switch.init(RESET_PIN);
@@ -1298,11 +1322,13 @@ void setup() {
 
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT);
+  Serial.println("Hello 1");
 }
 
 
 
 void loop() {
+  Serial.println("Hello 2");
   timer_start = millis();
   reset_switch_data = reset_switch.read();
   if(reset_switch_data){
@@ -1314,24 +1340,25 @@ void loop() {
   #if DEBUG_STATE_DATA
   Serial.print("Current State: "); Serial.print(current_state); 
   Serial.print(" Reset Switch Data: "); Serial.print(reset_switch_data);
-  Serial.print(" Front Bad: "); Serial.print(front_target_dis_bad);
+  Serial.print(" Front Bad: "); Serial.print(target_dis_bad[FRONT_BAD]);
   Serial.print(" Target Distance: "); Serial.println(target_distance);
   #endif
-
+  Serial.println("Hello 2.1");
   lrfs.update();
+  Serial.println("Hello 2.2");
 
   camera_data[CAM_LEFT] = camera_left.process_data((lrfs.get_value(2)), (lrfs.get_value(3)));
   camera_data[CAM_RIGHT] = camera_right.process_data((lrfs.get_value(4)), (lrfs.get_value(5)));
   
 
-  colour_sensor.update();
+  // colour_sensor.update(); // TURN ON ++++++++++++++++++++++++++++++++++
 
   Serial.print(camera_data[0]); Serial.print(" "); Serial.println(camera_data[1]);
 
+  Serial.println("Hello 3");
   bno.read();
   
-  // front_pivot.write_angle(135 + (bno.y_bearing_180()));
-  // back_pivot.write_angle(25 - (bno.y_bearing_180()));
+  Serial.println("Hello 4");
   // run state machine
   state_update();
   // Serial.print("Timer: "); Serial.println(millis()-timer_start);
