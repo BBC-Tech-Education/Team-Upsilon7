@@ -54,6 +54,7 @@ public:
     uint8_t limit_switches_flw(float bearing, uint8_t direction);
     uint8_t follow_left_wall(float bearing); // finds next spot l,f,r,b
     uint8_t mapping_alg(float bearing);
+    uint8_t start_tile();
 
 private:
     Tile* map;

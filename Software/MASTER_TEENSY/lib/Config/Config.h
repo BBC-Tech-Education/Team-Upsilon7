@@ -13,14 +13,14 @@
 #define DEBUG_COLOUR_DATA (PRINTS_COLOUR_DATA || PRINTS_GENERAL|| PRINTS_ALL_COLOUR)
 
 // ----------------- Camera -----------------
-#define PRINTS_ALL_CAMERA 1
+#define PRINTS_ALL_CAMERA 0
 #define PRINTS_CAMERA_DATA 0
 
 #define DEBUG_CAMERA_DATA (PRINTS_CAMERA_DATA || PRINTS_GENERAL|| PRINTS_ALL_CAMERA)
 
 
 // --------------- LRFS ---------------------
-#define PRINTS_ALL_LRF 0
+#define PRINTS_ALL_LRF 1
 #define PRINTS_LRF_DATA 0
 #define PRINTS_TARGET_DISTANCES 0
 
@@ -43,7 +43,7 @@
 
 
 // ----------------- Mapping -----------------
-#define PRINTS_ALL_MAPPING 0
+#define PRINTS_ALL_MAPPING 1
 
 #define PRINTS_CREATE_TILE 0
 #define PRINTS_CURRENT_TILE 0
@@ -108,10 +108,11 @@
 
 
 // ================================== SPEEDS ==================================
-#define FORWARD_SPEED 100
-#define TURN_SPEED 100
-#define BACK_SPEED 70
+#define FORWARD_SPEED 150 // was 100
+#define TURN_SPEED 170 // was 100
+#define BACK_SPEED 170 // was 70
 #define TILE_TIME (2800/300) // ms @100 * 1.2
+#define ANGLE_CONSTANT 1/45
 
 
 
@@ -176,6 +177,7 @@
 // ----------------- Camera Constants -----------------
 #define CAM_LEFT  0
 #define CAM_RIGHT 1
+#define LRF_DIFF 1.5
 
 
 // ----------------- Movement Constants -----------------

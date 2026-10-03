@@ -1,4 +1,8 @@
-// V2
+// V3
+
+// Things to remrber
+// led and package at same time
+//speed
 #include <math.h>
 #include <Arduino.h>
 #include <string.h>
@@ -30,7 +34,7 @@
 
 enum state_values {
   INIT, FORWARD, LEFT, RIGHT, BACK, BACKWARDS, MAPPING, BLACK_TILE, BLUE_TILE, VICTIM, VICTIM_DROPPER,
-  RAMP, RAMP_FORWARD, RESET_SWITCH, LIMIT_SWITCH
+  RAMP, RAMP_FORWARD, RESET_SWITCH, LIMIT_SWITCH, END_STATE
 };
 
 //=========//=======================//=======================//=======================
@@ -50,7 +54,7 @@ uint16_t average_distance_front;
 uint16_t average_distance_back;
 uint16_t stop_dis_front; // needs setting
 uint16_t stop_dis_back; // needs setting
-uint8_t front_target_dis_bad = false;
+uint8_t front_target_dis_bad = 0;
 
 
 // // ---------------- Black Tile ----------------
@@ -67,6 +71,7 @@ float ramp_angle = 0;
 
 // ---------------- Cameras ----------------
 uint8_t camera_data[2] = {0, 0};
+uint8_t vicitm_type[2] = {0, 0};
 uint8_t past_victims = 0;
 
 
@@ -111,7 +116,7 @@ Servo_Motor front_pivot;
 Servo_Motor back_pivot;
 
 Mapping maze_map;
-PID motor_PID = PID(8.0f,0.0f,1.6f); //7, 0, 1
+PID motor_PID = PID(12.0f,0.0f,2.4f); //8,0,1.6
 
 
 
@@ -142,6 +147,11 @@ void movement_forward_corrected(float speed, float offset) {
 
 void movement_turning(int speed) {
   motors.move(speed, -speed);  
+}
+
+void movement_turning_corrected(int speed) {
+  float angle = bno.x_bearing_180();
+  motors.move((speed + angle*ANGLE_CONSTANT), -(speed +angle*ANGLE_CONSTANT));  
 }
 
 
@@ -307,7 +317,7 @@ void victim_led(){
 
 
 void victim_package(int8_t side, uint8_t number){
-  led_flashing(500);
+  //led_flashing(500);
 
   if(number == 1) {
     drop_package(side);
@@ -404,6 +414,25 @@ float imu_average_e(){
 
 }
 
+uint8_t victim_stuff() {
+  camera_data[CAM_LEFT] = camera_left.process_data((lrfs.get_value(2)), (lrfs.get_value(3)));
+    camera_data[CAM_RIGHT] = camera_right.process_data((lrfs.get_value(4)), (lrfs.get_value(5)));
+
+    if((camera_data[CAM_LEFT] && !past_victims && camera_data[CAM_LEFT] != 90) ||
+    (camera_data[CAM_RIGHT] && !past_victims && camera_data[CAM_RIGHT] != 90)) {
+      Serial.println("DO I get here");
+      state_data |= BMSK_S_VICTIM_FOUND;
+      vicitm_type[0] = camera_data[0];
+      vicitm_type[1] = camera_data[1];
+    }
+    
+    if((state_data & BMSK_S_VICTIM_FOUND) && !past_victims) {
+      current_state = VICTIM;
+      state_data |= BMSK_S_NEW_STATE;
+      return 1;
+    }
+    return 0;
+}
 
 
 // ---------------------------------- States -----------------------------------
@@ -431,14 +460,23 @@ void state_forward() {
     past_states.push_back(FORWARD);
     state_data &= ~BMSK_S_NEW_STATE;
 
+    movement_forward(0);
+    delay(200);
+    lrfs.update();
 
+    delay(200);
+    lrfs.update();
+
+    if (victim_stuff()) {
+      return;
+    }
     // +++++ How will this change with different distances at front and back)
     // where do i need to move to
-    uint16_t front_dist = front_lrf();
-    if (front_dist >= LRF_SHORT_MAX_DIST) {
-      front_target_dis_bad = true;
+    uint16_t front_dist = lrfs.get_side_value(LRF_FRONT_SHORT_SIDE);
+    if (front_dist >= (LRF_SHORT_MAX_DIST-150)) {
+      front_target_dis_bad = 1;
     } else {
-      front_target_dis_bad = false;
+      front_target_dis_bad = 0;
       int16_t distance_to_move = ((front_dist % 300) + (300 - ROBOT_LENGTH)/2 + ROBOT_LENGTH); // find how much to move forward
       int16_t target_dis = front_lrf() - distance_to_move + MOVEMENT_OFFSET;// 150;
       target_distance = max(target_dis, 60);
@@ -459,17 +497,14 @@ void state_forward() {
 
     Serial.printf("Target Distance Front: %d\tTarget Distance Back: %d\n", target_distance, target_distance_back);
 
-    average_distance_front = ((target_distance + front_lrf())/2);
-    average_distance_back = (target_distance_back + back_dist) / 2;
+    average_distance_front = ((front_lrf()) - (target_distance/2)); // maybe???
+    average_distance_back = (back_dist - (target_distance_back/2)) ;
+
   }
 
   // ------------ Exit Conditions ------------
   if(state_data & BMSK_S_RESETING) {
     current_state = RESET_SWITCH;
-    state_data |= BMSK_S_NEW_STATE;
-
-  } else if((state_data & BMSK_S_VICTIM_FOUND) && !past_victims) {
-    current_state = VICTIM;
     state_data |= BMSK_S_NEW_STATE;
 
   } else if (colour_sensor.see_colour(BLACK)) {
@@ -497,8 +532,8 @@ void state_forward() {
       Serial.print("Target Distance:"); Serial.println(target_distance);
   #endif
 
-  if ((!(state_data & BMSK_S_SWITCH_TILE) && front_lrf() <= average_distance_front)
-   || (!(state_data & BMSK_S_SWITCH_TILE) && lrfs.get_side_value(LRF_BACK_SIDE) <= average_distance_back)) { //haven't switched tile yet, lrf is telling I've moved
+  if ((!(state_data & BMSK_S_SWITCH_TILE) && front_lrf() >= average_distance_front)
+   || (!(state_data & BMSK_S_SWITCH_TILE) && lrfs.get_side_value(LRF_BACK_SIDE) >= average_distance_back)) { //haven't switched tile yet, lrf is telling I've moved
     state_data |= BMSK_S_SWITCH_TILE;
     maze_map.switch_current_tile();
     past_victims = maze_map.victims(); //check if victims have been saved
@@ -522,23 +557,23 @@ void state_left() {
     current_state = RESET_SWITCH;
     state_data |= BMSK_S_NEW_STATE;
 
-  } else if((state_data & BMSK_S_VICTIM_FOUND) && !past_victims) {
-    current_state = VICTIM;
-    state_data |= BMSK_S_NEW_STATE;
-
   } else if(bno.x_angle_diff() < ANGLE_TOL) {
     current_state = FORWARD;
     state_data |= BMSK_S_NEW_STATE;
 
     movement_forward(0);
-    delay(400);
+    delay(200);
     lrfs.update();
     delay(100);
     lrfs.update();
   } 
+
+  if(state_data & BMSK_S_NEW_STATE) {
+    return;
+  }
   
   // ---------------- Function ----------------
-  movement_turning(-TURN_SPEED); 
+  movement_turning_corrected(-TURN_SPEED); 
 }
 
 
@@ -558,23 +593,23 @@ void state_right() {
     current_state = RESET_SWITCH;
     state_data |= BMSK_S_NEW_STATE;
 
-  } else if((state_data & BMSK_S_VICTIM_FOUND) && !past_victims) {
-    current_state = VICTIM;
-    state_data |= BMSK_S_NEW_STATE;
-
   } else if(bno.x_angle_diff() > -ANGLE_TOL) {
     current_state = FORWARD;
     state_data |= BMSK_S_NEW_STATE;
 
     movement_forward(0);
-    delay(400);
+    delay(200);
     lrfs.update();
     delay(100);
     lrfs.update();
   } 
+
+  if(state_data & BMSK_S_NEW_STATE) {
+    return;
+  }
   
   // ---------------- Function ----------------
-  movement_turning(TURN_SPEED); 
+  movement_turning_corrected(TURN_SPEED); 
 }
 
 
@@ -594,10 +629,6 @@ void state_back() {
     current_state = RESET_SWITCH;
     state_data |= BMSK_S_NEW_STATE;
 
-  } else if((state_data & BMSK_S_VICTIM_FOUND) && !past_victims) {
-    current_state = VICTIM;
-    state_data |= BMSK_S_NEW_STATE;
-
   } else if(bno.x_angle_diff() > -ANGLE_TOL) {
     if(turn_backward == 1) {
       turn_backward = 0;
@@ -605,7 +636,7 @@ void state_back() {
       state_data |= BMSK_S_NEW_STATE;
 
       movement_forward(0);
-      delay(400);
+      delay(200);
       lrfs.update();
       delay(100);
     lrfs.update();
@@ -613,9 +644,21 @@ void state_back() {
     } else {
       turn_backward += 1;
       state_data |= BMSK_S_NEW_STATE;
+      victim_stuff();
+
+      if((state_data & BMSK_S_VICTIM_FOUND) && !past_victims) {
+        current_state = VICTIM;
+        state_data |= BMSK_S_NEW_STATE;
+      } 
+      
     }
     
   } 
+
+  if(state_data & BMSK_S_NEW_STATE) {
+    return;
+  }
+
   // ---------------- Function ----------------
   movement_turning(TURN_SPEED);
   
@@ -667,8 +710,8 @@ void state_mapping() {
     if(colour_sensor.see_colour(SILVER)) {
       set_tile_info(false,false,false,true,false,false,false,false);
     }
-
     // set up target distances
+    victim_stuff(); 
   }
 
   // ------------ Exit Conditions ------------
@@ -676,12 +719,11 @@ void state_mapping() {
     current_state = RESET_SWITCH;
     state_data |= BMSK_S_NEW_STATE;
 
-  } else if (colour_sensor.see_colour(BLUE) && !(state_data & BMSK_S_BLUE_TILE_DONE)) { //sees blue for the first time
-    set_tile_info(false,false,false,false,true,false,false,false);
-    current_state = BLUE_TILE;
+  } else if((state_data & BMSK_S_VICTIM_FOUND) && !past_victims) {
+    current_state = VICTIM;
     state_data |= BMSK_S_NEW_STATE;
 
-  } else if (state_data & BMSK_S_MAPPING_COMPLETED) { //mapping function completed
+  }  else if (state_data & BMSK_S_MAPPING_COMPLETED) { //mapping function completed
     state_data &= ~BMSK_S_BLUE_TILE_DONE;
 
     if (next_state == 0) { //mapping says to move left
@@ -703,6 +745,7 @@ void state_mapping() {
     }
     state_data &= ~BMSK_S_MAPPING_COMPLETED;
   }
+
   if(state_data & BMSK_S_NEW_STATE){
     return;
   }
@@ -718,7 +761,7 @@ void state_mapping() {
 
 
   for (uint8_t i = 0; i < 4; i++) {
-      if(side_distances[i] > 250) { // may need to be changed
+      if(side_distances[i] > 300) { // may need to be changed was 250
         tile_available[i] = 1;
       }
   }
@@ -751,10 +794,10 @@ void state_black_tile() {
     }
     
     uint16_t front_dist = front_lrf();
-    if (front_dist == LRF_SHORT_MAX_DIST) {
-      front_target_dis_bad = true;
+    if (front_dist >= (LRF_SHORT_MAX_DIST-100)) {
+      front_target_dis_bad = 1;
     } else {
-      front_target_dis_bad = false;
+      front_target_dis_bad = 0;
       distance_to_move = 300 - (front_dist % 300) + (300 - ROBOT_LENGTH)/2;
       target_distance = front_dist + distance_to_move;
     }
@@ -827,8 +870,16 @@ void state_victim() {
     movement_forward(0);
     state_data &= ~BMSK_S_NEW_STATE;
     state_data &= ~BMSK_S_VICTIM_FOUND;
+    past_victims = 1;
     past_states.push_back(VICTIM);
     timer_led = millis();;
+
+    // camera_data[CAM_LEFT] = camera_left.process_data((lrfs.get_value(2)), (lrfs.get_value(3)));
+    // camera_data[CAM_RIGHT] = camera_right.process_data((lrfs.get_value(4)), (lrfs.get_value(5)));
+
+    // if(camera_data[CAM_LEFT] == 90 && camera_data[CAM_RIGHT == 90]) {
+    //   timer_led += 60000;
+    // }
 
   }
   
@@ -836,26 +887,24 @@ void state_victim() {
   if(state_data & BMSK_S_RESETING) {
     current_state = RESET_SWITCH;
     state_data |= BMSK_S_NEW_STATE;
+
   } else if((millis()- timer_led) > 5000) {
     set_tile_info(true, false, false, false, false, false, false, false);
-    past_victims = 1;
+    led_off();
+    delay(100);
 
-    if (camera_data[CAM_LEFT] == 30|| camera_data[CAM_RIGHT] == 30) {
-      if(past_states[past_states.size() - 2] == LEFT){
-        current_state = LEFT;
-        
-      } else if (past_states[past_states.size() - 2] == RIGHT) {
-        current_state = RIGHT;
-        
-      } else if (past_states[past_states.size() - 2] == BACK) {
-        current_state = BACK;
-
-      } else if(past_states[past_states.size() - 2] == FORWARD) {
-        current_state = FORWARD;
-
-      } else if(past_states[past_states.size() - 2] == RAMP_FORWARD) {
-        current_state = RAMP_FORWARD;
-      }
+    if (vicitm_type[CAM_LEFT] != 10 && vicitm_type[CAM_RIGHT] != 10) {
+      if (past_states[past_states.size() - 2] == FORWARD){
+      current_state = FORWARD;
+      state_data |= BMSK_S_NEW_STATE;
+    } else if (past_states[past_states.size() - 2] == BACKWARDS) {
+      current_state = BACKWARDS;
+      state_data |= BMSK_S_NEW_STATE;
+    } else {
+      current_state = MAPPING;
+      state_data |= BMSK_S_NEW_STATE;
+    }
+      
     } else {
       current_state = VICTIM_DROPPER;
       state_data |= BMSK_S_NEW_STATE;
@@ -880,7 +929,8 @@ void state_victim_dropper() {
     movement_forward(0);
     state_data &= ~BMSK_S_NEW_STATE;
     past_states.push_back(VICTIM_DROPPER);
-
+    led_off();
+    delay(100);
   }
   
   // ------------ Exit Conditions ------------
@@ -889,23 +939,19 @@ void state_victim_dropper() {
     state_data |= BMSK_S_NEW_STATE;
     
   } else if(state_data & BMSK_S_VICTIM_COMPLETED) {
-    if(past_states[past_states.size() - 3] == LEFT){
-        current_state = LEFT;
-      
-    } else if (past_states[past_states.size() - 3] == RIGHT) {
-        current_state = RIGHT;
-        
-    } else if (past_states[past_states.size() - 3] == BACK) {
-        current_state = BACK;
-        
-    } else if(past_states[past_states.size() - 3] == FORWARD) {
-        current_state = FORWARD;
-        
-    } else if(past_states[past_states.size() - 3] == RAMP_FORWARD) {
-        current_state = RAMP_FORWARD;
+    if (past_states[past_states.size() - 2] == FORWARD){
+      current_state = FORWARD;
+      state_data |= BMSK_S_NEW_STATE;
+    } else if (past_states[past_states.size() - 2] == BACKWARDS) {
+      current_state = BACKWARDS;
+      state_data |= BMSK_S_NEW_STATE;
+    } else {
+      current_state = MAPPING;
+      state_data |= BMSK_S_NEW_STATE;
     }
     state_data &= ~BMSK_S_VICTIM_COMPLETED;
   } 
+
   if (current_state != VICTIM_DROPPER) {
     return;
   }
@@ -913,13 +959,13 @@ void state_victim_dropper() {
 
   // ---------------- Function ----------------
   movement_forward(0);
-  if(camera_data[CAM_LEFT] == 10 || camera_data[CAM_LEFT] == 20) {
-    victim_package(-1, (camera_data[CAM_LEFT])/10);
+  if(vicitm_type[CAM_LEFT] == 10) {
+    victim_package(-1, (vicitm_type[CAM_LEFT])/10);
     state_data |= BMSK_S_VICTIM_COMPLETED;
   }
 
-  if(camera_data[CAM_RIGHT] == 10 || camera_data[CAM_RIGHT] == 20) {
-    victim_package(1, (camera_data[CAM_RIGHT])/10);
+  if(vicitm_type[CAM_RIGHT] == 10) {
+    victim_package(1, (vicitm_type[CAM_RIGHT])/10);
     state_data |= BMSK_S_VICTIM_COMPLETED;
   }
 }
@@ -1019,7 +1065,7 @@ void state_ramp_forward() {
     (290-(lrfs.get_side_value(LRF_FRONT_SHORT_SIDE) % 300));
     int16_t target_dis = front_lrf() - distance_to_move;
     target_distance = target_dis < 60 ? 60 : target_dis;
-    front_target_dis_bad = false;
+    front_target_dis_bad = 0;
 
 
     uint16_t back_dist = lrfs.get_side_value(LRF_BACK_SIDE);
@@ -1095,15 +1141,17 @@ void state_reset_switch() {
     movement_forward(0);
     past_states.push_back(RESET_SWITCH);
     state_data &= ~BMSK_S_NEW_STATE;
-
+    Serial.println("Stop 1");
     maze_map.soft_reset();
     state_data &= ~BMSK_S_MAP_RESETED;
     state_data |= BMSK_S_RESETING;
+    Serial.println("Stop 2");
 
   }
   
   // ------------ Exit Conditions ------------  
   if (state_data & BMSK_S_MAP_RESETED) {
+    Serial.println("Stop 3");
     current_state = MAPPING;
     state_data |= BMSK_S_NEW_STATE;
     state_data &= ~BMSK_S_RESETING;
@@ -1120,8 +1168,35 @@ void state_reset_switch() {
   movement_forward(0);
   if(!reset_switch_data) {
     state_data |= BMSK_S_MAP_RESETED;
+    Serial.println("Stop 4");
   }
+  Serial.println("Stop 5");
   
+}
+
+
+
+void state_end_state() {
+  // ----------------- Setup -----------------
+  if (state_data & BMSK_S_NEW_STATE) {
+    past_states.push_back(END_STATE);
+    state_data &= ~BMSK_S_NEW_STATE;
+  }
+
+  // ------------ Exit Conditions ------------
+  if(state_data & BMSK_S_RESETING) {
+    current_state = RESET_SWITCH;
+    state_data |= BMSK_S_NEW_STATE;
+
+  }
+
+  if(state_data & BMSK_S_NEW_STATE) {
+    return;
+  }
+
+  // ---------------- Function ----------------
+  movement_forward(0);
+  led_flashing(500);
 }
 
 
@@ -1182,6 +1257,10 @@ void state_update() {
     case RESET_SWITCH:
       state_reset_switch();
       break;
+    
+    case END_STATE:
+      state_end_state();
+      break;
 
     default:
       break;
@@ -1193,6 +1272,7 @@ void state_update() {
 
 
 void setup() {
+  //delay(5000);
   neopixel.begin();
 
   lrfs.init();
@@ -1230,25 +1310,23 @@ void loop() {
   } else {
     state_data &= ~BMSK_S_RESETING;
   }
+
   #if DEBUG_STATE_DATA
   Serial.print("Current State: "); Serial.print(current_state); 
   Serial.print(" Reset Switch Data: "); Serial.print(reset_switch_data);
+  Serial.print(" Front Bad: "); Serial.print(front_target_dis_bad);
   Serial.print(" Target Distance: "); Serial.println(target_distance);
   #endif
 
   lrfs.update();
 
-  // victims, comment if not needed
-  camera_data[CAM_LEFT] = camera_left.read_camera();
-  camera_data[CAM_RIGHT] = camera_right.read_camera();
-  if((camera_data[CAM_LEFT] && !past_victims && camera_data[CAM_LEFT] != 90) ||
-    (camera_data[CAM_RIGHT] && !past_victims && camera_data[CAM_RIGHT] != 90)) {
-      state_data |= BMSK_S_VICTIM_FOUND;
-    }
+  camera_data[CAM_LEFT] = camera_left.process_data((lrfs.get_value(2)), (lrfs.get_value(3)));
+  camera_data[CAM_RIGHT] = camera_right.process_data((lrfs.get_value(4)), (lrfs.get_value(5)));
+  
 
   colour_sensor.update();
 
-  Serial.print(camera_data[0]); Serial.println(camera_data[1]);
+  Serial.print(camera_data[0]); Serial.print(" "); Serial.println(camera_data[1]);
 
   bno.read();
   
@@ -1256,5 +1334,6 @@ void loop() {
   // back_pivot.write_angle(25 - (bno.y_bearing_180()));
   // run state machine
   state_update();
-  Serial.print("Timer: "); Serial.println(millis()-timer_start);
+  // Serial.print("Timer: "); Serial.println(millis()-timer_start);
 }
+
