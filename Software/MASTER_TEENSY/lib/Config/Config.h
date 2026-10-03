@@ -108,10 +108,11 @@
 
 
 // ================================== SPEEDS ==================================
-#define FORWARD_SPEED 100
-#define TURN_SPEED 100
-#define BACK_SPEED 70
+#define FORWARD_SPEED 150 // was 100
+#define TURN_SPEED 170 // was 100
+#define BACK_SPEED 170 // was 70
 #define TILE_TIME (2800/300) // ms @100 * 1.2
+#define ANGLE_CONSTANT 1/45
 
 
 

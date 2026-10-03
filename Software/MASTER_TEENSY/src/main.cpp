@@ -1,4 +1,8 @@
 // V3
+
+// Things to remrber
+// led and package at same time
+//speed
 #include <math.h>
 #include <Arduino.h>
 #include <string.h>
@@ -112,7 +116,7 @@ Servo_Motor front_pivot;
 Servo_Motor back_pivot;
 
 Mapping maze_map;
-PID motor_PID = PID(8.0f,0.0f,1.6f); //7, 0, 1
+PID motor_PID = PID(12.0f,0.0f,2.4f); //8,0,1.6
 
 
 
@@ -143,6 +147,11 @@ void movement_forward_corrected(float speed, float offset) {
 
 void movement_turning(int speed) {
   motors.move(speed, -speed);  
+}
+
+void movement_turning_corrected(int speed) {
+  float angle = bno.x_bearing_180();
+  motors.move((speed + angle*ANGLE_CONSTANT), -(speed +angle*ANGLE_CONSTANT));  
 }
 
 
@@ -463,8 +472,8 @@ void state_forward() {
     }
     // +++++ How will this change with different distances at front and back)
     // where do i need to move to
-    uint16_t front_dist = front_lrf();
-    if (front_dist >= (LRF_SHORT_MAX_DIST-50)) {
+    uint16_t front_dist = lrfs.get_side_value(LRF_FRONT_SHORT_SIDE);
+    if (front_dist >= (LRF_SHORT_MAX_DIST-150)) {
       front_target_dis_bad = 1;
     } else {
       front_target_dis_bad = 0;
@@ -564,7 +573,7 @@ void state_left() {
   }
   
   // ---------------- Function ----------------
-  movement_turning(-TURN_SPEED); 
+  movement_turning_corrected(-TURN_SPEED); 
 }
 
 
@@ -600,7 +609,7 @@ void state_right() {
   }
   
   // ---------------- Function ----------------
-  movement_turning(TURN_SPEED); 
+  movement_turning_corrected(TURN_SPEED); 
 }
 
 
@@ -785,7 +794,7 @@ void state_black_tile() {
     }
     
     uint16_t front_dist = front_lrf();
-    if (front_dist == LRF_SHORT_MAX_DIST) {
+    if (front_dist >= (LRF_SHORT_MAX_DIST-100)) {
       front_target_dis_bad = 1;
     } else {
       front_target_dis_bad = 0;
