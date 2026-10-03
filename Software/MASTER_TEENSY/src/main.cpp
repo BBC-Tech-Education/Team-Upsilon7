@@ -616,10 +616,6 @@ void state_back() {
     current_state = RESET_SWITCH;
     state_data |= BMSK_S_NEW_STATE;
 
-  } else if((state_data & BMSK_S_VICTIM_FOUND) && !past_victims) {
-    current_state = VICTIM;
-    state_data |= BMSK_S_NEW_STATE;
-
   } else if(bno.x_angle_diff() > -ANGLE_TOL) {
     if(turn_backward == 1) {
       turn_backward = 0;
@@ -635,6 +631,13 @@ void state_back() {
     } else {
       turn_backward += 1;
       state_data |= BMSK_S_NEW_STATE;
+      victim_stuff();
+
+      if((state_data & BMSK_S_VICTIM_FOUND) && !past_victims) {
+        current_state = VICTIM;
+        state_data |= BMSK_S_NEW_STATE;
+      } 
+      
     }
     
   } 
@@ -884,14 +887,16 @@ void state_victim() {
 
     if (vicitm_type[CAM_LEFT] != 10 && vicitm_type[CAM_RIGHT] != 10) {
       if (past_states[past_states.size() - 2] == FORWARD){
-        current_state = FORWARD;
-        state_data |= BMSK_S_NEW_STATE;
-      } else {
-        current_state = MAPPING;
-        state_data |= BMSK_S_NEW_STATE;
-      }
+      current_state = FORWARD;
+      state_data |= BMSK_S_NEW_STATE;
+    } else if (past_states[past_states.size() - 2] == BACKWARDS) {
+      current_state = BACKWARDS;
+      state_data |= BMSK_S_NEW_STATE;
+    } else {
+      current_state = MAPPING;
+      state_data |= BMSK_S_NEW_STATE;
+    }
       
-
     } else {
       current_state = VICTIM_DROPPER;
       state_data |= BMSK_S_NEW_STATE;
@@ -928,6 +933,9 @@ void state_victim_dropper() {
   } else if(state_data & BMSK_S_VICTIM_COMPLETED) {
     if (past_states[past_states.size() - 2] == FORWARD){
       current_state = FORWARD;
+      state_data |= BMSK_S_NEW_STATE;
+    } else if (past_states[past_states.size() - 2] == BACKWARDS) {
+      current_state = BACKWARDS;
       state_data |= BMSK_S_NEW_STATE;
     } else {
       current_state = MAPPING;
