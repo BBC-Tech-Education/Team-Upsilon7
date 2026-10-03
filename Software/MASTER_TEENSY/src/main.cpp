@@ -450,16 +450,19 @@ void state_forward() {
     target_dis_bad[BACK_BAD] = 0;
     target_dis_bad[LONG_BAD] = 0;
 
-    if((lrfs.get_side_value(LRF_FRONT_SHORT_SIDE))>= (LRF_SHORT_MAX_DIST-100)) {
+    if(lrfs.get_side_value(LRF_FRONT_SHORT_SIDE) >= (LRF_SHORT_MAX_DIST - 100)) {
       target_dis_bad[FRONT_BAD] = 1;
     }
-    if((lrfs.get_side_value(LRF_BACK_SIDE))>= (LRF_SHORT_MAX_DIST-100)) {
+
+    if((lrfs.get_side_value(LRF_BACK_SIDE))>= (LRF_SHORT_MAX_DIST-TILE_WIDTH-100)) {
       target_dis_bad[BACK_BAD] = 1;
     }
-    if(((lrfs.get_side_value(LRF_FRONT_LONG_SIDE))>= LRF_LONG_MAX_DIST) || 
-    (((lrfs.get_side_value(LRF_FRONT_LONG_SIDE))<= LRF_LONG_INVALID_DIST))) {
+
+    if((lrfs.get_side_value(LRF_FRONT_LONG_SIDE) >= LRF_LONG_MAX_DIST)
+    || (lrfs.get_side_value(LRF_FRONT_LONG_SIDE) <= LRF_LONG_INVALID_DIST)) {
       target_dis_bad[LONG_BAD] = 1;
     }
+
 
     if(!(target_dis_bad[FRONT_BAD])) { // front short are valid
       int16_t distance_to_move = (((lrfs.get_side_value(LRF_FRONT_SHORT_SIDE)) % 300) 
@@ -482,7 +485,8 @@ void state_forward() {
       Serial.print(target_dis_bad[0]); Serial.print(" "); 
       Serial.print(target_dis_bad[1]); Serial.print(" "); 
       Serial.print(target_dis_bad[2]); Serial.print(" "); 
-      Serial.print("Target Distance:"); Serial.println(target_distance);
+      Serial.print("Target Distance:"); Serial.print(target_distance);
+      Serial.print("Target Distance:"); Serial.println(target_distance_back);
     #endif
 
 
