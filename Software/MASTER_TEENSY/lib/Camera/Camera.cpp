@@ -35,21 +35,22 @@ uint8_t CAMERA::read_camera() {
 
 uint8_t CAMERA::process_data(uint16_t sensor_1, uint16_t sensor_2) {
     uint8_t cam_data = read_camera();
-    if((sensor_1 > 255) || (sensor_2 > 255)) {
+    if((sensor_1 > 220) || (sensor_2 > 220)) {
         past_data = 90;
         return 90;
 
-    } else {
-        float difference = ((float)sensor_1 / (float)sensor_2);
-        if(difference < 1.0f) {
-            difference = (1.0f / difference); 
-        }
-        if(LRF_DIFF < difference) {
-            // Serial.print("Hi "); Serial.println(difference);
-            past_data = 90;
-            return 90;
-        }
-    }
+    } 
+    // else {
+    //     float difference = ((float)sensor_1 / (float)sensor_2);
+    //     if(difference < 1.0f) {
+    //         difference = (1.0f / difference); 
+    //     }
+    //     if(LRF_DIFF < difference) {
+    //         // Serial.print("Hi "); Serial.println(difference);
+    //         past_data = 90;
+    //         return 90;
+    //     }
+    // }
     
     // else if (sensor_1 < sensor_2) {
     //     if((sensor_1*LRF_DIFF) < sensor_2) {

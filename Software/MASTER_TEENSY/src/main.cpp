@@ -67,6 +67,7 @@ float ramp_angle = 0;
 
 // ---------------- Cameras ----------------
 uint8_t camera_data[2] = {0, 0};
+uint8_t vicitm_type[2] = {0, 0};
 uint8_t past_victims = 0;
 
 
@@ -844,12 +845,12 @@ void state_victim() {
     past_states.push_back(VICTIM);
     timer_led = millis();;
 
-    camera_data[CAM_LEFT] = camera_left.process_data((lrfs.get_value(2)), (lrfs.get_value(3)));
-    camera_data[CAM_RIGHT] = camera_right.process_data((lrfs.get_value(4)), (lrfs.get_value(5)));
+    // camera_data[CAM_LEFT] = camera_left.process_data((lrfs.get_value(2)), (lrfs.get_value(3)));
+    // camera_data[CAM_RIGHT] = camera_right.process_data((lrfs.get_value(4)), (lrfs.get_value(5)));
 
-    if(camera_data[CAM_LEFT] == 90 && camera_data[CAM_RIGHT == 90]) {
-      timer_led += 60000;
-    }
+    // if(camera_data[CAM_LEFT] == 90 && camera_data[CAM_RIGHT == 90]) {
+    //   timer_led += 60000;
+    // }
 
   }
   
@@ -862,7 +863,7 @@ void state_victim() {
     led_off();
     delay(100);
 
-    if (camera_data[CAM_LEFT] != 10|| camera_data[CAM_RIGHT] != 10) {
+    if (vicitm_type[CAM_LEFT] != 10 && vicitm_type[CAM_RIGHT] != 10) {
       if(past_states[past_states.size() - 2] == LEFT){
         current_state = LEFT;
         past_states.push_back(LEFT);
@@ -947,13 +948,13 @@ void state_victim_dropper() {
 
   // ---------------- Function ----------------
   movement_forward(0);
-  if(camera_data[CAM_LEFT] == 10) {
-    victim_package(-1, (camera_data[CAM_LEFT])/10);
+  if(vicitm_type[CAM_LEFT] == 10) {
+    victim_package(-1, (vicitm_type[CAM_LEFT])/10);
     state_data |= BMSK_S_VICTIM_COMPLETED;
   }
 
-  if(camera_data[CAM_RIGHT] == 10) {
-    victim_package(1, (camera_data[CAM_RIGHT])/10);
+  if(vicitm_type[CAM_RIGHT] == 10) {
+    victim_package(1, (vicitm_type[CAM_RIGHT])/10);
     state_data |= BMSK_S_VICTIM_COMPLETED;
   }
 }
@@ -1310,7 +1311,10 @@ void loop() {
   
   if((camera_data[CAM_LEFT] && !past_victims && camera_data[CAM_LEFT] != 90) ||
     (camera_data[CAM_RIGHT] && !past_victims && camera_data[CAM_RIGHT] != 90)) {
+      Serial.println("DO I get here");
       state_data |= BMSK_S_VICTIM_FOUND;
+      vicitm_type[0] = camera_data[0];
+      vicitm_type[1] = camera_data[1];
     }
 
   colour_sensor.update();
