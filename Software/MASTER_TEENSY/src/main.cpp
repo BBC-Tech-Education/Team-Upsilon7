@@ -180,41 +180,34 @@ uint16_t front_lrf()
 
 
 
-uint8_t distance_conditions(uint8_t direction) { 
-  uint16_t distance = 0;
-  uint16_t targ_distance = 0;
-
-  uint16_t short_dist = lrfs.get_side_value(LRF_FRONT_SHORT_SIDE);
-  uint16_t long_dist = lrfs.get_side_value(LRF_FRONT_LONG_SIDE);
-  uint16_t back_dist = lrfs.get_side_value(LRF_BACK_SIDE);
-
-  if(!(target_dis_bad[FRONT_BAD]) && (short_dist != 0) && !(short_dist >= LRF_SHORT_MAX_DIST)) {
-    distance = short_dist;
-    targ_distance = target_distance;
-
-  } else if (!(target_dis_bad[BACK_BAD]) && (back_dist != 0) && !(back_dist >= LRF_SHORT_MAX_DIST)) {
-    distance = back_dist;
-    targ_distance = target_distance_back;
-    direction = !direction;
-
-  } else if (!(target_dis_bad[LONG_BAD]) && long_dist != 0 && !(long_dist >= LRF_LONG_MAX_DIST)) {
-    distance = long_dist;
-    targ_distance = target_distance;
-
-  } else {
-    lrfs.update();
-    Serial.println("WELLLLLLLLLL THIS SUCKS");
-    delay(50);
-    reset_switch_data = reset_switch.read();
-    if(state_data & BMSK_S_RESETING) {
-      current_state = RESET_SWITCH;
-      state_data |= BMSK_S_NEW_STATE;
-      return 0;
-    }
-    return distance_conditions(direction);
+uint8_t distance_conditions(uint8_t direction) {
+  const uint16_t short_dist = lrfs.get_side_value(LRF_FRONT_SHORT_SIDE);
+  const uint16_t long_dist  = lrfs.get_side_value(LRF_FRONT_LONG_SIDE);
+  const uint16_t back_dist  = lrfs.get_side_value(LRF_BACK_SIDE);
+  const bool moving_forward = (direction != 0);
+ 
+  // 1) front short
+  if (!target_dis_bad[FRONT_BAD] && short_dist != 0 && short_dist < LRF_SHORT_MAX_DIST) {
+    return moving_forward ? (short_dist <= target_distance)
+                          : (short_dist >= target_distance);
   }
+ 
+  // 2) back short
+  if (!target_dis_bad[BACK_BAD] && back_dist != 0 && back_dist < LRF_SHORT_MAX_DIST) {
+    return moving_forward ? (back_dist >= target_distance_back)
+                          : (back_dist <= target_distance_back);
+  }
+ 
+  // 3) front long (also reject readings inside its blind zone)
+  if (!target_dis_bad[LONG_BAD] && long_dist > LRF_LONG_INVALID_DIST && long_dist < LRF_LONG_MAX_DIST) {
+    return moving_forward ? (long_dist <= target_distance)
+                          : (long_dist >= target_distance);
+  }
+ 
+  // No usable sensor this loop. The main loop refreshes the LRFs and the
+  // reset switch every iteration, so just report "not there yet".
+  return 0;
 
-  return (distance < targ_distance) ? direction : !direction;
 }
 
 
